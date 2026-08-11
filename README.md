@@ -146,6 +146,43 @@ nothing looks broken. Configuring it per-container would make your privacy
 depend on never forgetting a line in a compose file. There is nothing here for
 you to get wrong.
 
+## Check before you start
+
+```bash
+sudo bondvpn check
+```
+
+It reads the config, every WireGuard file that config names, this machine's
+interfaces, the listen address and the disks, and prints **everything** it finds
+in one pass. It changes nothing — no rules, no routes, no interfaces brought up
+— so it is safe on a box that is already carrying traffic.
+
+```
+bondvpn 1.5.1 - checking /etc/bondvpn/config.yml
+
+configuration
+  FAIL  line 6: disks want 'label /path'
+  FAIL  no tunnels configured - at least one WireGuard config is required
+  FAIL  dns is required - set your provider's resolver (Mullvad's is 10.64.0.1)
+
+wireguard configs
+  FAIL  cannot read /etc/wireguard/wg-oops.conf: no such file or directory
+
+this machine
+  ok    WAN interface eth0, LAN 192.168.1.0/24
+  FAIL  refusing to start: clients subnet 192.168.1.0/24 contains this host's
+        management address 192.168.1.6 - the host's own replies would be routed
+        into a tunnel and the box would become unreachable
+
+status api and interface
+  ok    listen 127.0.0.1:8099 is loopback-only and the interface
+```
+
+Exit code is 1 if anything failed and 0 if only warnings remain, so it drops
+into a provisioning script. Warnings are advice, not faults — an unreadable disk
+or a missing `PersistentKeepalive` still lets the gateway route, and the summary
+says so.
+
 ## Use
 
 ```

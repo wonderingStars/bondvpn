@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.5.1
+
+`bondvpn check` - validate the configuration and the machine, change nothing.
+
+Getting a first install running was harder than it needed to be, for two
+reasons that this fixes.
+
+Errors arrived ONE AT A TIME, in an order that was not severity. `dns is
+required` fired before the missing tunnels and before a clients subnet that
+would have locked the operator out of their own box, hiding both. A config with
+four mistakes took four edit-and-run cycles. The parser now reads the whole file
+and collects every complaint, syntax and meaning together, so it is one edit.
+
+And `status` was the wrong tool for the job it was being recommended for. It
+reports on a gateway that is already running, so a mistyped path in `tunnels:`
+showed up as "wg0 is down" - which reads as a VPN fault rather than as a typo.
+
+`check` reads the config, every WireGuard file it names, the interfaces, the
+listen address and the disks, and prints all of it at once. It touches nothing:
+no rules, no routes, no interfaces brought up, so it is safe on a box already
+carrying traffic, including one whose routing another tool owns. It exits 1 on
+problems and 0 on warnings alone, which makes it usable in a provisioning
+script.
+
+Warnings are advice rather than faults: an unreadable disk or a missing
+PersistentKeepalive still lets the gateway route, and the summary says "safe to
+start". Two of them are worth the ink - `listen` on 0.0.0.0 publishes the API
+and the interface to every network the machine is on with no login, and a
+missing ip6tables means the IPv6 half of the kill switch cannot be armed.
+
 ## 1.5.0
 
 BondVPN now ships an interface. Until this release it served JSON and nothing

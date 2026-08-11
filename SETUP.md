@@ -290,6 +290,16 @@ itself**. It has no login of its own, so reach it over SSH port forwarding
 (`ssh -L 8099:127.0.0.1:8099 you@gateway`) rather than by moving `listen` to a
 LAN address - that publishes it to everyone on your network.
 
+Before starting anything, have it read the lot back to you:
+
+```bash
+sudo bondvpn check
+```
+
+It reports every problem it can find in one pass - the config, the WireGuard
+files it names, this machine's interfaces, the listen address and the disks -
+and changes nothing. Fix whatever it lists, run it again, then:
+
 ```bash
 sudo systemctl enable --now bondvpn
 ```

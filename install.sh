@@ -65,7 +65,8 @@ configuration is right arms a kill switch around the wrong subnet.
      add `PersistentKeepalive = 25` under [Peer]. BondVPN refuses to start on
      the first two and tells you which file - they are silent problems, not
      fussiness.
-  3. systemctl enable --now bondvpn
-  4. bondvpn status
-  5. bondvpn leak-test     (disruptive: ~30s with no tunnels)
+  3. bondvpn check         (reads everything, changes nothing - do this first)
+  4. systemctl enable --now bondvpn
+  5. bondvpn status
+  6. bondvpn leak-test     (disruptive: ~30s with no tunnels)
 EOF
