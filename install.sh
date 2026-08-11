@@ -61,7 +61,11 @@ Installed. Nothing is running yet - deliberately, because starting before the
 configuration is right arms a kill switch around the wrong subnet.
 
   1. edit /etc/bondvpn/config.yml
-  2. systemctl enable --now bondvpn
-  3. bondvpn status
-  4. bondvpn leak-test     (disruptive: ~30s with no tunnels)
+  2. in each WireGuard config: add `Table = off`, remove any `DNS =` line, and
+     add `PersistentKeepalive = 25` under [Peer]. BondVPN refuses to start on
+     the first two and tells you which file - they are silent problems, not
+     fussiness.
+  3. systemctl enable --now bondvpn
+  4. bondvpn status
+  5. bondvpn leak-test     (disruptive: ~30s with no tunnels)
 EOF

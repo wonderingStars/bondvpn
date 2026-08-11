@@ -38,10 +38,14 @@ routes:
     - 172.20.0.20
     - 172.20.0.21
 
-# The resolver forced on clients. It MUST be reachable only through the tunnels
-# - your VPN provider's internal resolver, not your router. A LAN resolver leaks
-# every hostname you look up while the traffic itself stays correctly tunnelled,
-# so nothing looks wrong.
+# The resolver every client is forced onto. REQUIRED.
+#
+# This is not a setting passed to your containers. Every DNS query leaving the
+# client subnet is rewritten in the kernel to go here, over the tunnels,
+# whatever the container itself is configured to use - so a forgotten compose
+# file cannot leak your lookups. Use your provider's internal resolver
+# (Mullvad's is 10.64.0.1); a public one works too and still travels down the
+# tunnel, but your provider's own never sees a query from your home address.
 dns: 10.64.0.1
 
 # "auto" derives these from the live system on every start, so a new router or a
@@ -54,6 +58,11 @@ wan_interface: auto
 # A tunnel that has not handshaken within this window is treated as dead and
 # dropped from the bond. Interfaces stay "up" long after they stop passing
 # traffic, so time since handshake is the only honest liveness signal.
+#
+# This assumes your tunnels keep handshaking. WireGuard only rekeys when there
+# is traffic, so an idle tunnel with no `PersistentKeepalive = 25` under [Peer]
+# goes quiet and gets dropped from the bond while being perfectly healthy.
+# BondVPN warns at startup if a tunnel config is missing it.
 stale_handshake: 180
 
 # The status API. Keep this on loopback or the container bridge. It exposes

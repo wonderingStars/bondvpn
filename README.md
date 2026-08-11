@@ -44,9 +44,30 @@ Verify what you downloaded against `SHA256SUMS` on the release:
 sha256sum -c SHA256SUMS
 ```
 
-Requires Linux, root, and `wg`, `wg-quick`, `ip`, `iptables`, `curl`. Your
-WireGuard configs must set `Table = off` — BondVPN owns the routing and will
-fight anything that installs its own default route.
+Requires Linux, root, and `wg`, `wg-quick`, `ip`, `iptables`, `curl`.
+
+### Your tunnel configs
+
+A provider's file as downloaded is not safe to hand to this gateway. BondVPN
+checks each one at startup and refuses to run rather than misbehave quietly, so
+you find out immediately rather than a week later:
+
+```ini
+[Interface]
+Table = off                 # REQUIRED. Otherwise wg-quick installs its own
+                            # default route and fights BondVPN for the routing
+                            # table — your traffic takes the wrong tunnel and
+                            # nothing reports an error.
+# DNS = 10.64.0.1           # REMOVE this line. wg-quick uses it to rewrite
+                            # your machine's own resolver, and fails outright
+                            # if resolvconf is not installed. BondVPN handles
+                            # client DNS itself.
+[Peer]
+PersistentKeepalive = 25    # Recommended. WireGuard only rekeys when there is
+                            # traffic, so an idle tunnel stops handshaking and
+                            # gets dropped from the bond while perfectly
+                            # healthy. This warns rather than refuses.
+```
 
 ## Configure
 
@@ -66,6 +87,18 @@ routes:
 to start if you point it at your LAN, because that configuration routes the
 host's own replies into a tunnel and the machine goes silent while looking
 perfectly healthy.
+
+### DNS is enforced, not suggested
+
+`dns:` is required, and every DNS query leaving your client subnet is rewritten
+in the kernel to that resolver, over the tunnels — whatever the container itself
+is set to use.
+
+Merely allowing DNS is not enough: a container pointed at a public resolver
+leaks every hostname you look up while its traffic stays correctly tunnelled and
+nothing looks broken. Configuring it per-container would make your privacy
+depend on never forgetting a line in a compose file. There is nothing here for
+you to get wrong.
 
 ## Use
 
@@ -93,9 +126,11 @@ its own. Put a reverse proxy in front of it if you want it on your LAN.
 
 ```json
 {
+  "version": "1.1.0",
   "bonded": 3,
   "hash_policy": 1,
   "nat": true,
+  "dns_forced": true,
   "killswitch": { "v4": true, "v6": true },
   "tunnels": [
     { "iface": "wg0", "up": true, "in_bond": true, "handshake_age": 44,
@@ -131,6 +166,14 @@ perfectly legitimately while every container is sealed.
 - your traffic not being translated onto the tunnels, which nothing else
   reveals: the tunnels handshake, the routing is correct, the counters move,
   and every request dies at the far end with no error anywhere
+- your DNS not being redirected
+- a tunnel config that has lost `Table = off`, gained a `DNS =` line, or never
+  had a keepalive
+
+And whatever it can repair, it repairs. The kill switch, the address
+translation and the DNS redirect are re-checked continuously and reinstalled if
+anything removes them — a firewall reload takes them out silently, and a kill
+switch failing open is exactly the case where nobody is watching.
 
 ## Why three tunnels
 
