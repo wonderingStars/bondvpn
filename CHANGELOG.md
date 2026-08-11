@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.2.0
+
+The daemon now recovers from things that break after it started, rather than
+only from things that were wrong when it started.
+
+### Tunnels that die are brought back
+
+Dropping a dead tunnel from the bond was only half the job: it stayed dead until
+somebody noticed, its clients re-packed onto the survivors, and the bond ran at
+reduced capacity indefinitely while reporting itself healthy about the tunnels
+that remained. A tunnel that is down is now started again, and one that is up
+but has stopped handshaking - which blackholes everything routed into it while
+looking present - is cycled. Both are backed off (60s and 5 minutes) so a dead
+endpoint is not hammered, and cycling gets the longer wait because it interrupts
+whatever is still flowing.
+
+### Routing repairs itself, including the tables
+
+Policy rules were only re-applied when the PLAN changed, so anything that
+flushed them - another tool, a script, a person - went unnoticed and every
+client fell back to the main table and out through the ISP connection.
+
+The check covers routes as well as rules, and that distinction was found the
+hard way: deleting an interface silently empties the table holding a route
+through it while the rule pointing at that table survives. A tunnel that went
+away and came back left its pinned client with a rule to an empty table and no
+way out at all - the plan unchanged, every rule present, and exactly one client
+dead. Caught on the test bed by killing a tunnel and watching that client stay
+silent after everything else recovered.
+
 ## 1.1.0
 
 Everything here came from asking what a first real user would hit that the

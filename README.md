@@ -126,7 +126,7 @@ its own. Put a reverse proxy in front of it if you want it on your LAN.
 
 ```json
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "bonded": 3,
   "hash_policy": 1,
   "nat": true,
@@ -170,10 +170,19 @@ perfectly legitimately while every container is sealed.
 - a tunnel config that has lost `Table = off`, gained a `DNS =` line, or never
   had a keepalive
 
-And whatever it can repair, it repairs. The kill switch, the address
-translation and the DNS redirect are re-checked continuously and reinstalled if
-anything removes them — a firewall reload takes them out silently, and a kill
-switch failing open is exactly the case where nobody is watching.
+And whatever it can repair, it repairs:
+
+- the kill switch, the address translation and the DNS redirect, if anything
+  removes them — a firewall reload takes them out silently, and a kill switch
+  failing open is exactly the case where nobody is watching
+- the routing rules **and** the routes inside them. Deleting an interface
+  silently empties the table that routed through it while the rule pointing at
+  that table survives, so a tunnel that drops and returns would otherwise leave
+  one client with no way out and everything else looking fine
+- the tunnels themselves — a tunnel that goes down is started again, and one
+  that is up but has stopped handshaking (which blackholes whatever is routed
+  into it) is cycled. Without that, one blip leaves you permanently down a
+  tunnel while everything reports itself healthy.
 
 ## Why three tunnels
 
