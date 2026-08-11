@@ -113,6 +113,18 @@ No problems. Safe to start.
 
 The interface is then at <http://127.0.0.1:8099/> on that machine.
 
+**It starts three torrent clients, one per tunnel** — `10.99.0.10`, `.11` and
+`.12`, on ports 8081–8083. That is not padding: a single pinned client sits on
+one tunnel and leaves the other two carrying nothing, which is one tunnel's
+throughput from a product whose whole point is the sum of them. Pinned clients
+are dealt round-robin across the live tunnels in the order they appear in `PIN`,
+so three clients and three tunnels is one each, and every tunnel does work.
+
+Want fewer, or more? Add or remove a client service and its address in `PIN`.
+Each one needs its own web port, peer port, address and config volume — sharing
+any of the four is the usual way this goes wrong. More clients than tunnels
+simply wrap, so a fourth would share a tunnel with the first.
+
 **Two things this needs that a normal container does not:**
 
 - `network_mode: host` and `NET_ADMIN`. BondVPN configures the kernel's routing

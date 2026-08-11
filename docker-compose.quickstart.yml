@@ -39,14 +39,29 @@ services:
       # the edit stick. Delete the file to have it regenerated.
       - bondvpn-config:/etc/bondvpn
     environment:
-      # The client that must keep ONE exit for the life of every torrent.
-      # BitTorrent ties identity to an address; spreading one client across
-      # tunnels leaves trackers holding an address it is not reliably at.
-      PIN: 10.99.0.10
+      # One address per torrent client, in the order they should be dealt to
+      # tunnels: first listed to the first live tunnel, and so on. Each keeps
+      # ONE exit for the life of every torrent it holds, while all three tunnels
+      # carry work.
+      PIN: 10.99.0.10 10.99.0.11 10.99.0.12
     restart: unless-stopped
 
-  # A worked example of a client, and the one most people came for. Its address
-  # is fixed because BondVPN's pin matches on it.
+  # THREE CLIENTS, ONE PER TUNNEL. This is the shape that actually uses the bond.
+  #
+  # A single pinned client would sit on wg0 and leave the other two tunnels
+  # carrying nothing - one tunnel's throughput, from a product whose whole point
+  # is the sum of them. Pinned clients are dealt round-robin across the live
+  # tunnels in the order they appear in PIN, so three clients and three tunnels
+  # is one each.
+  #
+  # Why pinned rather than bonded: BitTorrent ties identity to an address. A
+  # client whose connections are spread across tunnels announces from one exit
+  # and opens peer connections from the others, so trackers and peers hold an
+  # address it is not reliably at. Measured against the same swarms: 1 connected
+  # seed at 0 B/s spread, versus 7 seeds at 2.05 MB/s pinned.
+  #
+  # Each needs its OWN web port, peer port, address and config volume. Sharing
+  # any of the four is the usual way this goes wrong.
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
@@ -79,6 +94,70 @@ services:
       - bondvpn
     restart: unless-stopped
 
+  qbittorrent2:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent2
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-Etc/UTC}
+      WEBUI_PORT: 8082
+    volumes:
+      - ${STAGING_DIR}:/downloads
+      - ${LIBRARY_DIR}:/library
+      - qbittorrent2-config:/config
+    ports:
+      # The web UI on loopback only. Published to the LAN it would be reachable
+      # around whatever you put in front of it.
+      - "127.0.0.1:8082:8082"
+      # Peer traffic, which is not a web UI and is not guarded by a password.
+      - "6882:6882"
+      - "6882:6882/udp"
+    # DNS through the TUNNEL, not your router. Without this a container resolves
+    # through the host's resolver, so every tracker hostname is looked up in
+    # clear text over your ISP line while the traffic itself is tunnelled. The
+    # IP egress never leaks; the queries naming it do.
+    dns:
+      - 10.64.0.1
+    networks:
+      bondnet:
+        ipv4_address: 10.99.0.11
+    depends_on:
+      - bondvpn
+    restart: unless-stopped
+
+  qbittorrent3:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent3
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-Etc/UTC}
+      WEBUI_PORT: 8083
+    volumes:
+      - ${STAGING_DIR}:/downloads
+      - ${LIBRARY_DIR}:/library
+      - qbittorrent3-config:/config
+    ports:
+      # The web UI on loopback only. Published to the LAN it would be reachable
+      # around whatever you put in front of it.
+      - "127.0.0.1:8083:8083"
+      # Peer traffic, which is not a web UI and is not guarded by a password.
+      - "6883:6883"
+      - "6883:6883/udp"
+    # DNS through the TUNNEL, not your router. Without this a container resolves
+    # through the host's resolver, so every tracker hostname is looked up in
+    # clear text over your ISP line while the traffic itself is tunnelled. The
+    # IP egress never leaks; the queries naming it do.
+    dns:
+      - 10.64.0.1
+    networks:
+      bondnet:
+        ipv4_address: 10.99.0.12
+    depends_on:
+      - bondvpn
+    restart: unless-stopped
+
 networks:
   bondnet:
     driver: bridge
@@ -89,3 +168,5 @@ networks:
 volumes:
   bondvpn-config:
   qbittorrent-config:
+  qbittorrent2-config:
+  qbittorrent3-config:
