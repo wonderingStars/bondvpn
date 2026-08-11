@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.3.0
+
+### Licence heartbeat
+
+Installs fetch a signed status file from the public repository once an hour. If
+no valid "active" status has been seen for 24 hours, the daemon withdraws the
+client routing and exits.
+
+The failure direction is the entire design, because this is a fail-closed
+gateway and the daemon holds the kill switch:
+
+- **Unreachable is not revoked.** Only a full day with no valid status stops
+  anything, so GitHub outages and offline boxes are survivable. The countdown is
+  logged on every check, long before it bites.
+- **Expiry stops traffic, never protection.** The routing is withdrawn and the
+  kill switch is left armed - a revoked install goes quiet, it never leaks.
+- **The request carries no identifiers.** A plain GET of a static file: no
+  install ID, no address, no telemetry. Documented in the public README rather
+  than left to be found with tcpdump.
+- The status file is Ed25519-signed and the public key is compiled in, so
+  nobody can mint their own "active" by pointing the hostname somewhere else.
+
+`status` reports `"licensed"`, and answers from the recorded heartbeat rather
+than the network so that polling it costs nothing.
+
+`tools/signlicense` produces the status file. The private key belongs nowhere
+near either repository.
+
 ## 1.2.0
 
 The daemon now recovers from things that break after it started, rather than

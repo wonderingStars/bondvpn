@@ -20,6 +20,11 @@ way that application actually wants:
 
 Free to use. Ships configured for three tunnels; up to five are supported.
 
+**New here?** [SETUP.md](SETUP.md) walks the whole thing end to end — a bare
+Linux box to Sonarr, Radarr, Prowlarr, sabnzbd and three qBittorrents, each
+leaving through the exit you chose for it. It includes deploying the arr stack
+if you don't already have one.
+
 ## Install
 
 Download the binary for your architecture from
