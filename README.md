@@ -206,12 +206,16 @@ the bottleneck rather than the tunnels. Raise it if your line is fast enough —
 
 ## Licence check
 
-BondVPN checks that this installation is still licensed. It fetches
-[`license.json`](license.json) from this repository once an hour — a plain GET
-of a static file. **No identifiers are sent**: no install ID, no address, no
-telemetry, nothing that distinguishes your copy from anyone else's. The whole
-request is visible to you with `tcpdump`, and it is documented here rather than
-discovered later.
+BondVPN checks that this installation is still licensed. Once an hour it fetches
+the same signed [`license.json`](license.json) that this repository serves,
+trying `bondvpn-licence.bondvpn.workers.dev` first and falling back to the
+repository copy — a plain GET of a static file either way.
+
+**No identifiers are sent**: no install ID, no address, no telemetry, nothing
+that distinguishes your copy from anyone else's. The request is identical for
+every installation, which means the count of them says how many people run this
+and can never say who. Nothing is stored per request. The whole thing is visible
+to you with `tcpdump`, and it is documented here rather than discovered later.
 
 What happens if it fails:
 

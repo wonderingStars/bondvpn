@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.4.0
+
+The hourly licence check now goes to a host whose request count is visible,
+with the repository copy behind it as the fallback. Each installation checks in
+once an hour, so requests in a day over 24 estimates how many are running -
+which is the number downloads cannot give you. Downloads count people who took
+the software once; this counts machines still running it today.
+
+Nothing about the request changed: no identifiers, no cookies, no per-request
+storage. The count comes from request metering rather than a log, so it answers
+"how many" and never "who".
+
+The ordering is the load-bearing part. If the counting host is down, blocked or
+retired, installations carry on from the copy in the repository and nobody
+notices - verified by blackholing the host and watching an install check in
+anyway. A counter that can take the product down is a counter that eventually
+will.
+
+Only 1.4.0 and later check in there, so the figure is a floor that climbs as
+people upgrade, and anyone blocking the host is invisible to it.
+
 ## 1.3.0
 
 ### Licence heartbeat
