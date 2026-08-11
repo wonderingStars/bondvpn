@@ -25,6 +25,14 @@ Linux box to Sonarr, Radarr, Prowlarr, sabnzbd and three qBittorrents, each
 leaving through the exit you chose for it. It includes deploying the arr stack
 if you don't already have one.
 
+![A gateway running three bonded tunnels](docs/dashboard.png)
+
+*A working setup: three tunnels bonded, kill switch armed, and each torrent
+client's queue tagged with the tunnel carrying it. **BondVPN ships no interface**
+— this is the author's own dashboard, built on the `status` JSON that BondVPN
+serves. Yours will look like whatever you build on it, or like nothing at all if
+you only ever use `bondvpn status`.*
+
 ## Install
 
 Download the binary for your architecture from
