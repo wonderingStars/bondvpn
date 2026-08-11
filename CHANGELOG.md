@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.5.0
+
+BondVPN now ships an interface. Until this release it served JSON and nothing
+else, and the screenshot in this README was the author's own separate dashboard
+- which made the picture an advert for something you did not get.
+
+`bondvpn run` serves one page at the root of `listen`, alongside the `/status`
+and `/healthz` it already had. It shows the hero state (protected, degraded,
+blocked or exposed), every tunnel with its handshake age, endpoint, pinned
+clients and live throughput, the per-client routing table, every protection the
+daemon maintains, the problem list, and a machine panel with CPU, memory and any
+filesystems named under the new `disks:` setting.
+
+Three decisions worth knowing about:
+
+- **It is one file, compiled into the binary, and fetches nothing external.** A
+  gateway whose kill switch is doing its job has no route out, so a page that
+  pulled a font or a script from a CDN would break precisely when you opened it
+  to find out what broke. A test fails if an absolute URL ever appears in it.
+- **It shows only what `/status` carries.** No panel is fed by anything the API
+  cannot answer for, which is how a dashboard avoids quietly inventing numbers.
+- **There is no login, and `listen` is why.** The page is a read-only view of one
+  machine's own routing, reachable from that machine or its container network.
+  Putting `listen` on a LAN address publishes it to your whole network; put a
+  reverse proxy with a login in front of it if you want that.
+
+Set `dashboard: false` to serve the API alone. The status document gained a
+`host` object (name, uptime, cores, load, memory, disks); everything already in
+it is unchanged, so anything built on the old shape keeps working.
+
 ## 1.4.0
 
 The hourly licence check now goes to a host whose request count is visible,

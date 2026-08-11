@@ -27,11 +27,44 @@ if you don't already have one.
 
 ![A gateway running three bonded tunnels](docs/dashboard.png)
 
-*A working setup: three tunnels bonded, kill switch armed, and each torrent
-client's queue tagged with the tunnel carrying it. **BondVPN ships no interface**
-— this is the author's own dashboard, built on the `status` JSON that BondVPN
-serves. Yours will look like whatever you build on it, or like nothing at all if
-you only ever use `bondvpn status`.*
+*The interface BondVPN serves, on a gateway with three tunnels bonded. Every
+figure in this shot is invented and every address comes from the documentation
+ranges — it is the real page, not a mockup, rendered against a fixture.*
+
+## The interface
+
+`bondvpn run` serves a page at the root of `listen` — the same address as the
+API, so with the default `listen: 127.0.0.1:8099` it is at
+<http://127.0.0.1:8099/> on the gateway itself.
+
+It shows the hero state (**protected**, **degraded**, **blocked** or
+**exposed**), every tunnel with its handshake age, endpoint, pinned clients and
+live throughput, the per-client routing table, every protection the daemon
+maintains, the problem list, and a machine panel with CPU, memory and whichever
+filesystems you name:
+
+```yaml
+dashboard: true          # false serves /status and /healthz alone
+
+disks:
+  - staging /data
+  - library /mnt/library
+```
+
+Three things worth knowing:
+
+- **It is one file compiled into the binary and fetches nothing external.** A
+  gateway whose kill switch is doing its job has no route out, so a page that
+  pulled a font or a script from a CDN would break at exactly the moment you
+  opened it to find out what broke.
+- **It shows only what `/status` carries**, so no panel can quietly invent a
+  number. Torrent queues, imports and service tiles are not in it — those belong
+  to your download stack, not to a VPN router, and BondVPN holds no credentials
+  for them.
+- **There is no login.** It is a read-only view of one machine's own routing,
+  reachable from that machine or its container network. Moving `listen` to a LAN
+  address publishes it to your whole network — put a reverse proxy with a login
+  in front of it if that is what you want.
 
 ## Install
 

@@ -274,10 +274,21 @@ wan_interface: auto   # a router does not silently break the LAN exception
 
 stale_handshake: 180
 listen: 127.0.0.1:8099
+
+dashboard: true       # the built-in interface, at the root of `listen`
+
+disks:                # what the machine panel watches, as "label /path"
+  - staging /data
+  - library /mnt/library
 ```
 
 Pins are given tunnels in the order you list them: first pinned address to the
 first tunnel, and so on.
+
+Once it is running, the interface is at <http://127.0.0.1:8099/> **on the gateway
+itself**. It has no login of its own, so reach it over SSH port forwarding
+(`ssh -L 8099:127.0.0.1:8099 you@gateway`) rather than by moving `listen` to a
+LAN address - that publishes it to everyone on your network.
 
 ```bash
 sudo systemctl enable --now bondvpn

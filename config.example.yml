@@ -69,3 +69,20 @@ stale_handshake: 180
 # tunnel endpoints and client addresses and has no authentication of its own -
 # put a reverse proxy in front of it if you want it on the LAN.
 listen: 127.0.0.1:8099
+
+# The built-in interface, served at the root of `listen`. It is one page with no
+# external requests of any kind, so it renders on a gateway with no route out -
+# which is exactly the moment you want to look at it.
+#
+# It has NO LOGIN, deliberately: it is a read-only view of this machine's own
+# routing, reachable only from the machine or its container network. Moving
+# `listen` to a LAN address publishes it to everyone on your network.
+dashboard: true
+
+# Filesystems the machine panel watches, as "label /path". Optional, and named
+# by you because only you know which mount is the staging disk and which is the
+# library - guessing from /proc/mounts puts docker overlays on screen and leaves
+# the NFS export off it. An unreadable mount is drawn as unreadable, not as full.
+disks:
+  - staging /data
+  - library /mnt/library
