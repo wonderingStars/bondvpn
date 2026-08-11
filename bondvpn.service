@@ -1,0 +1,21 @@
+[Unit]
+Description=bondvpn - multi-tunnel WireGuard routing
+# Docker owns the client bridge, so wait for it. Without this the bridge does
+# not exist yet and the first routing pass has nothing to attach to.
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/bondvpn run -config /etc/bondvpn/config.yml
+Restart=always
+RestartSec=10
+
+# There is deliberately no ExecStop. `bondvpn stop` removes the kill switch,
+# and systemd runs ExecStop on every RESTART too - so wiring it here would open
+# a window on each restart where clients route straight out of the ISP
+# connection. Disarming is a manual, deliberate act:
+#   bondvpn stop -config /etc/bondvpn/config.yml
+
+[Install]
+WantedBy=multi-user.target

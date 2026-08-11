@@ -1,0 +1,62 @@
+# bondvpn configuration
+#
+# Ships with three tunnels. That is a recommendation, not a limit: up to five
+# are supported. Three is the default because five WireGuard configs consumes an
+# entire Mullvad device allowance, leaving none for a phone or a laptop - and
+# because past three, a single home connection is usually the bottleneck rather
+# than the tunnels.
+
+tunnels:
+  - /etc/wireguard/wg0.conf
+  - /etc/wireguard/wg1.conf
+  - /etc/wireguard/wg2.conf
+
+# The subnet your download containers sit on. This MUST NOT contain this
+# machine's own address - the gateway refuses to start if it does, because the
+# host's own replies would be routed into a tunnel and the box would go silent.
+clients: 172.20.0.0/24
+
+# How anything not listed below is routed.
+#   bond - spread this client's connections across every live tunnel
+#   pin  - give this client one tunnel and keep it there
+default: bond
+
+routes:
+  # Pin your BitTorrent clients. The protocol ties identity to an address, so
+  # spreading one client's connections across tunnels leaves trackers and peers
+  # holding an address you are not reliably at. Measured on the same swarms:
+  # 1 connected seed at 0 B/s bonded, against 7 seeds at 2.05 MB/s pinned.
+  pin:
+    - 172.20.0.10
+    - 172.20.0.11
+
+  # Bond everything that opens many independent connections to one server -
+  # usenet, HTTP indexers, direct downloads. Each connection authenticates
+  # separately, so a rotating source address costs nothing and you get the sum
+  # of every tunnel.
+  bond:
+    - 172.20.0.20
+    - 172.20.0.21
+
+# The resolver forced on clients. It MUST be reachable only through the tunnels
+# - your VPN provider's internal resolver, not your router. A LAN resolver leaks
+# every hostname you look up while the traffic itself stays correctly tunnelled,
+# so nothing looks wrong.
+dns: 10.64.0.1
+
+# "auto" derives these from the live system on every start, so a new router or a
+# changed subnet is handled without editing this file. Replacing a router and
+# leaving a stale subnet here is exactly how the LAN exception silently stops
+# matching and every container loses the local network.
+lan: auto
+wan_interface: auto
+
+# A tunnel that has not handshaken within this window is treated as dead and
+# dropped from the bond. Interfaces stay "up" long after they stop passing
+# traffic, so time since handshake is the only honest liveness signal.
+stale_handshake: 180
+
+# The status API. Keep this on loopback or the container bridge. It exposes
+# tunnel endpoints and client addresses and has no authentication of its own -
+# put a reverse proxy in front of it if you want it on the LAN.
+listen: 127.0.0.1:8099
