@@ -191,6 +191,28 @@ for your phone or laptop. Past three tunnels a single home connection is usually
 the bottleneck rather than the tunnels. Raise it if your line is fast enough —
 `tunnels:` accepts up to five entries.
 
+## Licence check
+
+BondVPN checks that this installation is still licensed. It fetches
+[`license.json`](license.json) from this repository once an hour — a plain GET
+of a static file. **No identifiers are sent**: no install ID, no address, no
+telemetry, nothing that distinguishes your copy from anyone else's. The whole
+request is visible to you with `tcpdump`, and it is documented here rather than
+discovered later.
+
+What happens if it fails:
+
+- **Unreachable is not revoked.** A failed check starts a 24-hour clock. GitHub
+  outages, DNS blips and a box that is briefly offline change nothing.
+- If 24 hours pass with no valid status, BondVPN **stops carrying client
+  traffic** and exits. It logs the countdown long before that, on every check.
+- **The kill switch stays armed** when it does. A stopped installation goes
+  quiet; it never opens a path around the tunnels. Your containers lose their
+  connection, they do not lose their protection.
+- `bondvpn stop` continues to disarm everything, as always, and is unaffected.
+
+`status` reports `"licensed"` so you can see the state at any time.
+
 ## Licence and support
 
 Proprietary; see [LICENSE](LICENSE). Free to install and use on any number of
