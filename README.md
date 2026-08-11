@@ -95,6 +95,7 @@ its own. Put a reverse proxy in front of it if you want it on your LAN.
 {
   "bonded": 3,
   "hash_policy": 1,
+  "nat": true,
   "killswitch": { "v4": true, "v6": true },
   "tunnels": [
     { "iface": "wg0", "up": true, "in_bond": true, "handshake_age": 44,
@@ -127,6 +128,9 @@ perfectly legitimately while every container is sealed.
 - `fib_multipath_hash_policy` not set to 1, without which every connection to a
   given server lands on one tunnel and bonding does nothing
 - the kill switch not being armed
+- your traffic not being translated onto the tunnels, which nothing else
+  reveals: the tunnels handshake, the routing is correct, the counters move,
+  and every request dies at the far end with no error anywhere
 
 ## Why three tunnels
 
