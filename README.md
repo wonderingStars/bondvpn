@@ -66,6 +66,67 @@ Three things worth knowing:
   address publishes it to your whole network — put a reverse proxy with a login
   in front of it if that is what you want.
 
+## Quick start: the container
+
+A prebuilt image that needs three things from you — your VPN keys, where
+downloads land, and where the finished media lives.
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/wonderingStars/bondvpn/master/docker-compose.quickstart.yml
+curl -fsSL  https://raw.githubusercontent.com/wonderingStars/bondvpn/master/.env.example -o .env
+$EDITOR .env
+docker compose -f docker-compose.quickstart.yml up -d
+```
+
+`.env` is three paths:
+
+```ini
+WIREGUARD_DIR=/etc/wireguard   # your provider's wg0/wg1/wg2.conf go here
+STAGING_DIR=/srv/downloads     # where downloads are written while they run
+LIBRARY_DIR=/srv/media         # where the finished media lives
+```
+
+**There is no config file to write.** On first start the container reads
+whatever `.conf` files you mounted, in name order, and generates
+`/etc/bondvpn/config.yml` around them — client subnet, DNS, listen address and
+the two disks all have working defaults. Then it runs `bondvpn check` and prints
+the result before routing anything, so a container that cannot work says why in
+its own logs instead of restart-looping in silence.
+
+Mount your own `/etc/bondvpn/config.yml` and it is used untouched — a
+hand-written config always wins.
+
+```
+docker logs bondvpn
+```
+
+```
+bondvpn-entrypoint: found 3 tunnel config(s) in /etc/wireguard
+bondvpn-entrypoint: wrote /etc/bondvpn/config.yml
+bondvpn 1.5.1 - checking /etc/bondvpn/config.yml
+  ok    3 tunnel config(s) readable, with Table = off and no DNS line
+  ok    the clients subnet does not contain this host's own address
+  ok    staging: /staging readable, 743 GB free
+  ok    library: /library readable, 12 TB free
+No problems. Safe to start.
+```
+
+The interface is then at <http://127.0.0.1:8099/> on that machine.
+
+**Two things this needs that a normal container does not:**
+
+- `network_mode: host` and `NET_ADMIN`. BondVPN configures the kernel's routing
+  tables, rules and firewall — that is the entire job. In its own network
+  namespace it would route a namespace nobody else is in.
+- The multipath hash policy is a **host** setting. Without it every connection
+  to a given server lands on one tunnel and the bond does nothing. Either run
+  the container `--privileged`, or set it once on the host:
+  `sysctl -w net.ipv4.fib_multipath_hash_policy=1`. The container tells you
+  which of the two happened on every start.
+
+The image carries the released binary, verified against the published
+`SHA256SUMS` at build time, on `linux/amd64` and `linux/arm64`.
+
 ## Install
 
 Download the binary for your architecture from

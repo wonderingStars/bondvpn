@@ -1,0 +1,91 @@
+# BondVPN quick start.
+#
+# Copy .env.example to .env, fill in three paths, and `docker compose up -d`.
+# The only thing you must supply is your provider's WireGuard files - everything
+# else here has a working default.
+#
+#   docker compose -f docker-compose.quickstart.yml up -d
+#
+# WHY BONDVPN RUNS ON THE HOST NETWORK
+# It configures the kernel's routing tables, rules and firewall - that is the
+# whole job. Inside its own network namespace it would route a namespace nobody
+# else is in. `network_mode: host` puts it where the routes it writes are the
+# ones your containers use.
+#
+# WHY THE CLIENTS ARE ON A FIXED SUBNET
+# BondVPN matches on source address, so the addresses have to be predictable.
+# 10.99.0.0/24 is deliberately NOT your LAN: bonding a subnet containing this
+# machine's own address policy-routes its own replies into a tunnel and the box
+# stops answering. BondVPN refuses that outright, but the default stays clear of
+# it in the first place.
+
+services:
+  bondvpn:
+    image: ghcr.io/wonderingstars/bondvpn:latest
+    container_name: bondvpn
+    network_mode: host
+    cap_add:
+      - NET_ADMIN     # routes, rules, iptables - the entire job
+      - SYS_MODULE    # loading the wireguard module if the host has not
+    volumes:
+      # THE ONE THING YOU SUPPLY. Three device configs from your provider, on
+      # DIFFERENT servers. Read-only: BondVPN never writes to them.
+      - ${WIREGUARD_DIR:-/etc/wireguard}:/etc/wireguard:ro
+      # Where downloads land while they run, and where finished media lives.
+      # Mounted so the machine panel can show you how much room is left in each.
+      - ${STAGING_DIR}:/staging
+      - ${LIBRARY_DIR}:/library
+      # Keeps the generated config across restarts, so you can edit it and have
+      # the edit stick. Delete the file to have it regenerated.
+      - bondvpn-config:/etc/bondvpn
+    environment:
+      # The client that must keep ONE exit for the life of every torrent.
+      # BitTorrent ties identity to an address; spreading one client across
+      # tunnels leaves trackers holding an address it is not reliably at.
+      PIN: 10.99.0.10
+    restart: unless-stopped
+
+  # A worked example of a client, and the one most people came for. Its address
+  # is fixed because BondVPN's pin matches on it.
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-Etc/UTC}
+      WEBUI_PORT: 8081
+    volumes:
+      - ${STAGING_DIR}:/downloads
+      - ${LIBRARY_DIR}:/library
+      - qbittorrent-config:/config
+    ports:
+      # The web UI on loopback only. Published to the LAN it would be reachable
+      # around whatever you put in front of it.
+      - "127.0.0.1:8081:8081"
+      # Peer traffic, which is not a web UI and is not guarded by a password.
+      - "6881:6881"
+      - "6881:6881/udp"
+    # DNS through the TUNNEL, not your router. Without this a container resolves
+    # through the host's resolver, so every tracker hostname is looked up in
+    # clear text over your ISP line while the traffic itself is tunnelled. The
+    # IP egress never leaks; the queries naming it do.
+    dns:
+      - 10.64.0.1
+    networks:
+      bondnet:
+        ipv4_address: 10.99.0.10
+    depends_on:
+      - bondvpn
+    restart: unless-stopped
+
+networks:
+  bondnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.99.0.0/24
+
+volumes:
+  bondvpn-config:
+  qbittorrent-config:

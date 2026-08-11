@@ -1,0 +1,6 @@
+# Shell scripts and the Dockerfile MUST keep LF endings. A CRLF shebang makes
+# the kernel look for an interpreter called "/bin/sh\r", and the container dies
+# with "no such file or directory" naming a file that is plainly there.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf

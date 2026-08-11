@@ -30,6 +30,13 @@ start". Two of them are worth the ink - `listen` on 0.0.0.0 publishes the API
 and the interface to every network the machine is on with no login, and a
 missing ip6tables means the IPv6 half of the kill switch cannot be armed.
 
+Also new: a prebuilt container, `ghcr.io/wonderingstars/bondvpn`. It needs three
+things from you - your provider's WireGuard files, where downloads land, and
+where the finished media lives - and generates its own config around whatever
+you mounted, so there is no config file to write for a standard install. A
+config you mount yourself is used untouched. `docker-compose.quickstart.yml` and
+`.env.example` in the repository are the whole of the setup.
+
 ## 1.5.0
 
 BondVPN now ships an interface. Until this release it served JSON and nothing
