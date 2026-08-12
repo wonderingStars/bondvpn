@@ -160,7 +160,7 @@ config you already have.
 Verify what you downloaded against `SHA256SUMS` on the release:
 
 ```
-sha256sum -c SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS
 ```
 
 Requires Linux, root, and `wg`, `wg-quick`, `ip`, `iptables`, `curl`.
@@ -282,19 +282,30 @@ its own. Put a reverse proxy in front of it if you want it on your LAN.
 
 ```json
 {
-  "version": "1.2.0",
+  "version": "1.5.1",
   "bonded": 3,
   "hash_policy": 1,
   "nat": true,
   "dns_forced": true,
+  "licensed": true,
+  "host": { "name": "vpn-gateway", "uptime": 90120, "cores": 8,
+            "load1": 0.4, "load_pct": 5, "mem_used_kb": 1572864,
+            "mem_total_kb": 32872064, "disks": [] },
   "killswitch": { "v4": true, "v6": true },
   "tunnels": [
     { "iface": "wg0", "up": true, "in_bond": true, "handshake_age": 44,
+      "endpoint": "198.51.100.66:51820", "rx_bytes": 0, "tx_bytes": 0,
       "pinned_clients": ["172.20.0.10"] }
   ],
-  "problems": []
+  "clients": [{ "ip": "172.20.0.10", "mode": "pin", "tunnel": "wg0" }],
+  "problems": [],
+  "warnings": []
 }
 ```
+
+`problems` fail health (`/healthz` returns 503); `warnings` are degradations the
+gateway survives (a missing `PersistentKeepalive`, an unset host sysctl) and
+keep it green.
 
 ### The leak test
 

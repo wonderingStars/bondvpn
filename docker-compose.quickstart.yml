@@ -44,6 +44,10 @@ services:
       # ONE exit for the life of every torrent it holds, while all three tunnels
       # carry work.
       PIN: 10.99.0.10 10.99.0.11 10.99.0.12
+      # Your provider's in-tunnel resolver. Mullvad is 10.64.0.1 (the default);
+      # Proton/PIA/AirVPN use a different address - set it here or every DNS
+      # lookup is forced to an unrouted resolver and nothing resolves.
+      DNS: ${VPN_DNS:-10.64.0.1}
     restart: unless-stopped
 
   # THREE CLIENTS, ONE PER TUNNEL. This is the shape that actually uses the bond.
@@ -70,6 +74,10 @@ services:
       PGID: ${PGID:-1000}
       TZ: ${TZ:-Etc/UTC}
       WEBUI_PORT: 8081
+      # Distinct peer port per client. Without it the linuxserver image defaults
+      # every instance to 6881, so the 6881/6881 mapping DNATs to a port with
+      # no listener and clients 2 and 3 never accept an inbound peer.
+      TORRENTING_PORT: 6881
     volumes:
       - ${STAGING_DIR}:/downloads
       - ${LIBRARY_DIR}:/library
@@ -86,12 +94,19 @@ services:
     # clear text over your ISP line while the traffic itself is tunnelled. The
     # IP egress never leaks; the queries naming it do.
     dns:
-      - 10.64.0.1
+      - ${VPN_DNS:-10.64.0.1}
     networks:
       bondnet:
         ipv4_address: 10.99.0.10
     depends_on:
-      - bondvpn
+      # Wait for the gateway to be HEALTHY (kill switch armed, tunnels up), not
+      # merely started. Short-form depends_on orders start only, so a client
+      # could send traffic in the window before bondvpn armed - straight out the
+      # ISP line. service_healthy closes that window; combined with the
+      # masquerade-off network below, the stack fails closed.
+      bondvpn:
+        condition: service_healthy
+        restart: true
     restart: unless-stopped
 
   qbittorrent2:
@@ -102,6 +117,10 @@ services:
       PGID: ${PGID:-1000}
       TZ: ${TZ:-Etc/UTC}
       WEBUI_PORT: 8082
+      # Distinct peer port per client. Without it the linuxserver image defaults
+      # every instance to 6881, so the 6882/6882 mapping DNATs to a port with
+      # no listener and clients 2 and 3 never accept an inbound peer.
+      TORRENTING_PORT: 6882
     volumes:
       - ${STAGING_DIR}:/downloads
       - ${LIBRARY_DIR}:/library
@@ -118,12 +137,19 @@ services:
     # clear text over your ISP line while the traffic itself is tunnelled. The
     # IP egress never leaks; the queries naming it do.
     dns:
-      - 10.64.0.1
+      - ${VPN_DNS:-10.64.0.1}
     networks:
       bondnet:
         ipv4_address: 10.99.0.11
     depends_on:
-      - bondvpn
+      # Wait for the gateway to be HEALTHY (kill switch armed, tunnels up), not
+      # merely started. Short-form depends_on orders start only, so a client
+      # could send traffic in the window before bondvpn armed - straight out the
+      # ISP line. service_healthy closes that window; combined with the
+      # masquerade-off network below, the stack fails closed.
+      bondvpn:
+        condition: service_healthy
+        restart: true
     restart: unless-stopped
 
   qbittorrent3:
@@ -134,6 +160,10 @@ services:
       PGID: ${PGID:-1000}
       TZ: ${TZ:-Etc/UTC}
       WEBUI_PORT: 8083
+      # Distinct peer port per client. Without it the linuxserver image defaults
+      # every instance to 6881, so the 6883/6883 mapping DNATs to a port with
+      # no listener and clients 2 and 3 never accept an inbound peer.
+      TORRENTING_PORT: 6883
     volumes:
       - ${STAGING_DIR}:/downloads
       - ${LIBRARY_DIR}:/library
@@ -150,17 +180,33 @@ services:
     # clear text over your ISP line while the traffic itself is tunnelled. The
     # IP egress never leaks; the queries naming it do.
     dns:
-      - 10.64.0.1
+      - ${VPN_DNS:-10.64.0.1}
     networks:
       bondnet:
         ipv4_address: 10.99.0.12
     depends_on:
-      - bondvpn
+      # Wait for the gateway to be HEALTHY (kill switch armed, tunnels up), not
+      # merely started. Short-form depends_on orders start only, so a client
+      # could send traffic in the window before bondvpn armed - straight out the
+      # ISP line. service_healthy closes that window; combined with the
+      # masquerade-off network below, the stack fails closed.
+      bondvpn:
+        condition: service_healthy
+        restart: true
     restart: unless-stopped
 
 networks:
   bondnet:
     driver: bridge
+    # Docker's default is to MASQUERADE this subnet straight out the host's WAN,
+    # which would give the clients a working path to the internet whenever
+    # bondvpn's kill switch is not armed - e.g. the seconds after a host reboot,
+    # before the daemon starts, when netfilter is empty. Turning it off means an
+    # un-armed gateway leaves the clients with no NAT and no route out: fail
+    # closed. bondvpn maintains its own NAT onto the tunnels, so the legitimate
+    # path is unaffected.
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "false"
     ipam:
       config:
         - subnet: 10.99.0.0/24

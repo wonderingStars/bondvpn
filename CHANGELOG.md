@@ -1,5 +1,67 @@
 # Changelog
 
+## 1.5.2
+
+A production-readiness review (32 reviewers, every finding adversarially
+verified) surfaced defects across the daemon, the dashboard and the quickstart
+container. The material ones are fixed here.
+
+DAEMON
+- **Pinned-route signature is now deterministic.** `Plan.Describe` rendered pins
+  in Go map order, so the run loop saw an unchanged plan as changed on ~40% of
+  ticks and re-applied the whole routing plan - flushing the tables and, in that
+  window, resetting client connections, every ~2.4s forever on a three-pin
+  setup. The pins are sorted before rendering.
+- **Data race on the status document closed.** `current *Status` was written by
+  the run loop and read by HTTP handler goroutines with no synchronisation; it
+  now goes through a mutex. Verified under `go test -race`.
+- **Warnings no longer fail health.** A missing `PersistentKeepalive` and an
+  unset `fib_multipath_hash_policy` were folded into `problems`, so `/healthz`
+  returned 503 forever on Mullvad's own default config and on any unprivileged
+  container. `/status` now carries a separate `warnings` array; `/healthz` and
+  `bondvpn status` gate on `problems` alone.
+- A never-handshaken tunnel reported "has not handshaken in -1s"; it now says
+  "has never completed a handshake".
+
+DASHBOARD
+- **Throughput is correct.** Rates were bytes-delta over wall-clock between 5s
+  polls, but the daemon only refreshes the document every 15s, so the headline
+  read 0 twice then ~3x once and the bars strobed. Rates are now delta over the
+  server's own `generated` clock - accurate and immune to viewer clock skew.
+- **Staleness is skew-proof.** "Stale" is now "generated has not advanced in N
+  seconds of real time", not "generated vs the viewer's clock", which wrongly
+  marked a healthy gateway frozen whenever the two clocks disagreed.
+- Every panel dims when the feed is stale or unreachable - previously the
+  protection and problems panels stayed bright, asserting "kill switch armed"
+  over a frozen feed. A hung poll now aborts after 8s instead of leaving a
+  stale-but-green screen for the browser's multi-minute TCP timeout.
+
+QUICKSTART CONTAINER
+- **Fails closed now.** `bondnet` had Docker's default masquerade on, so the
+  client subnet had a working path out the host WAN whenever the kill switch was
+  not armed - the seconds after a host reboot, before the daemon starts. This
+  falsified the "nothing leaks" promise. Masquerade is disabled (bondvpn keeps
+  its own NAT onto the tunnels), and the clients now wait for the gateway to be
+  HEALTHY, not merely started.
+- Each client gets its own `TORRENTING_PORT` (6881/6882/6883); without it the
+  linuxserver image defaulted all three to 6881, so two of the three peer-port
+  mappings hit no listener.
+- `DNS` is configurable (`VPN_DNS`), so non-Mullvad providers work; it was
+  hardcoded to Mullvad's 10.64.0.1, which is unrouted on other providers'
+  tunnels and silently broke all name resolution.
+- The healthcheck reads the port from the config instead of hardcoding 8099, so
+  a changed `listen` no longer reports a working gateway as unhealthy.
+
+DOCS AND CI
+- Each release now attaches the install helpers (`config.example.yml`,
+  `bondvpn.service`, `install.sh`), which the setup guide told users to download
+  but were never uploaded; `install.sh` ships executable; the checksum step uses
+  `--ignore-missing` so a single-arch download verifies cleanly.
+- The `/status` sample in the README was three releases stale (1.2.0, missing
+  fields); it now matches the shipped shape.
+- The image workflow reads the tag/input through the environment and validates
+  the version, closing a script-injection path into a `packages: write` job.
+
 ## 1.5.1
 
 `bondvpn check` - validate the configuration and the machine, change nothing.

@@ -232,12 +232,15 @@ and `grep -i "^DNS" /etc/wireguard/wg*.conf` returns nothing.
 
 ## 5. Install BondVPN
 
-Download the binary for your architecture from
-[Releases](https://github.com/wonderingStars/bondvpn/releases), alongside
-`SHA256SUMS`, `config.example.yml`, `bondvpn.service` and `install.sh`:
+Each release attaches the binaries, `SHA256SUMS`, and the three install helpers
+(`config.example.yml`, `bondvpn.service`, `install.sh`). Download the binary for
+your architecture plus those four from
+[Releases](https://github.com/wonderingStars/bondvpn/releases) into one
+directory, then:
 
 ```bash
-sha256sum -c SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS   # verifies the arch you downloaded
+chmod +x install.sh
 sudo ./install.sh
 ```
 

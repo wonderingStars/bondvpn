@@ -34,16 +34,21 @@ RUN set -eu; \
     rm -rf /tmp/*
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY docker-healthcheck.sh /usr/local/bin/docker-healthcheck.sh
 COPY config.example.yml /usr/share/bondvpn/config.example.yml
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-healthcheck.sh
 
 # The interface and the status API. Published here for documentation; with
 # --network host (which this needs) the port is the host's own.
 EXPOSE 8099
 
 # A gateway that cannot route is not healthy, whatever the process is doing.
+# The probe reads the port from the config rather than hardcoding 8099, because
+# `listen` is configurable - a hardcoded probe reports a working gateway as
+# unhealthy the moment someone changes it. /healthz 503s on real problems only;
+# warnings (a missing keepalive, an unset host sysctl) keep it green.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
-    CMD curl -fsS http://127.0.0.1:8099/healthz || exit 1
+    CMD /usr/local/bin/docker-healthcheck.sh
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["run"]

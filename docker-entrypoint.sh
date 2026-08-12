@@ -58,8 +58,10 @@ EOF
 
     mkdir -p /etc/bondvpn
     {
+        echo "# BONDVPN-GENERATED - do not hand-edit and expect the env to win."
         echo "# Generated on first start from the files mounted in $WGDIR."
-        echo "# Mount your own $CFG to take over completely."
+        echo "# Mount your own $CFG to take over completely, or delete this file"
+        echo "# to have it regenerated from the current environment."
         echo "tunnels:"
         printf '%s\n' "$tunnels" | while read -r t; do
             [ -n "$t" ] && echo "  - $t"
@@ -99,6 +101,12 @@ EOF
     } > "$CFG"
 
     log "wrote $CFG"
+elif head -n1 "$CFG" 2>/dev/null | grep -q "BONDVPN-GENERATED"; then
+    # A config WE wrote on a previous start, persisted in the volume. Say so, and
+    # say how to change it - claiming the user "mounted" it sent people hunting
+    # for a bind mount that does not exist when they wanted to change PIN or DNS.
+    log "reusing the generated $CFG from a previous start"
+    log "  (delete it to regenerate from the current environment, or mount your own)"
 else
     log "using the $CFG you mounted"
 fi
