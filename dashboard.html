@@ -162,6 +162,10 @@ tr:last-child td{border-bottom:0}
 .plist li::before{content:"\25B8";position:absolute;left:0;color:var(--amber)}
 .plist li.bad{color:var(--red)}
 .plist li.bad::before{color:var(--red)}
+/* Warnings sit below the problems and must not read as failures: they are
+   things to know, not things to fix. */
+.plist li.note{color:var(--dim)}
+.plist li.note::before{content:"\2022";color:var(--dim)}
 .psep{color:var(--faint)}
 #up{font-size:11px;color:var(--dim)}
 /* machine gauges: a ring per watched number, drawn with conic-gradient so the
@@ -328,11 +332,14 @@ footer{margin-top:22px;color:var(--faint);font-size:11px}
     // set, "direct" is the correct state and not a fault.
     box.appendChild(chk("dns", s.dns_forced ? "ok" : "off", s.dns_forced ? "forced" : "direct"));
     box.appendChild(chk("hash", s.hash_policy === 1 ? "ok" : "warn",
-                        s.hash_policy === 1 ? "L3+L4" : "L3"));
+                        s.hash_policy === 1 ? "L3+L4"
+                          : s.hash_policy < 0 ? "NONE" : "L3"));
     if (worst !== null) {
-      box.appendChild(chk("handshakes", worst < 180 ? "ok" : "warn", worst + "s"));
+      // A tunnel that has never handshaken reports -1. "-1s" reads as a broken
+      // dashboard at the exact moment someone is diagnosing a dead endpoint.
+      box.appendChild(chk("handshakes", worst < 0 ? "bad" : worst < 180 ? "ok" : "warn",
+                          worst < 0 ? "NEVER" : worst + "s"));
     }
-    if (!s.licensed) box.appendChild(chk("licence", "bad", "EXPIRED"));
   }
 
   function gauge(label, pct, sub, tone) {
@@ -527,6 +534,10 @@ footer{margin-top:22px;color:var(--faint);font-size:11px}
       var bits = [];
       if (!t.up) {
         bits.push("down");
+      } else if (t.handshake_age < 0) {
+        // Up but never connected. Calling that "live" contradicted the problem
+        // list three inches below it and made the dashboard look confused.
+        bits.push("up, never connected");
       } else {
         bits.push(t.in_bond ? "in bond" : "live, not carrying");
         bits.push("handshake " + t.handshake_age + "s");
@@ -607,10 +618,15 @@ footer{margin-top:22px;color:var(--faint);font-size:11px}
       ["client NAT", s.nat ? "on" : "OFF", s.nat ? "hi" : "red"],
       ["client DNS", s.dns_forced ? "forced through the tunnels" : "not redirected",
        s.dns_forced ? "hi" : "dim"],
-      ["multipath hash", s.hash_policy === 1 ? "layer 4" : "policy " + s.hash_policy,
+      // hash_policy is -1 when the sysctl does not exist, which means the kernel
+      // has no multipath routing at all. "policy -1" told nobody anything.
+      ["multipath hash",
+       s.hash_policy === 1 ? "layer 4"
+         : s.hash_policy < 0 ? "unsupported by this kernel" : "layer 3 only",
        s.hash_policy === 1 ? "hi" : "amber"],
       ["tunnels in bond", String(s.bonded), s.bonded > 0 ? "hi" : "red"],
-      ["licence", s.licensed ? "valid" : "expired", s.licensed ? "hi" : "red"]
+      ["wireguard", s.wireguard_backend || "unknown",
+       s.wireguard_backend && s.wireguard_backend.indexOf("kernel") === 0 ? "hi" : "amber"]
     ];
     rows.forEach(function (r) {
       var k = document.createElement("div");
@@ -627,7 +643,12 @@ footer{margin-top:22px;color:var(--faint);font-size:11px}
     var box = $("problems");
     box.textContent = "";
     var ps = s.problems || [];
-    if (!ps.length) {
+    // The daemon has always sent `warnings` and this page has never shown them,
+    // so things it says out loud on the console - "this kernel cannot bond" -
+    // were invisible to anyone using the dashboard, which is most people.
+    var ws = s.warnings || [];
+
+    if (!ps.length && !ws.length) {
       var m = document.createElement("div");
       m.className = "msg";
       m.textContent = "none - every check the daemon makes is passing";
@@ -642,6 +663,12 @@ footer{margin-top:22px;color:var(--faint);font-size:11px}
       // escape; it reads red, everything else amber.
       if (/kill switch|NOT armed|not being translated/i.test(p)) li.className = "bad";
       li.textContent = p;
+      ul.appendChild(li);
+    });
+    ws.forEach(function (w) {
+      var li = document.createElement("li");
+      li.className = "note";
+      li.textContent = w;
       ul.appendChild(li);
     });
     box.appendChild(ul);
