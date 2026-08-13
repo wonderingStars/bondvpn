@@ -1,31 +1,96 @@
 BondVPN
 Copyright (c) 2026 Steven Fairclough. All rights reserved.
 
-PROPRIETARY SOFTWARE LICENCE
+PROPRIETARY LICENCE - FREE AT HOME, PAID AT WORK
 
-Permission is granted, free of charge, to any person or organisation obtaining a
-copy of this software in binary form, to install and use it on any number of
-machines they own or administer, for any purpose including commercial purposes.
+In one line: run it at home for nothing, pay for it if your organisation
+benefits from it, and if you ever improve it, offer the improvement back.
 
-You may not:
+1. WHAT YOU MAY DO AT NO CHARGE
 
-  1. decompile, disassemble, or otherwise reverse engineer the software, except
-     to the extent that this restriction is prohibited by applicable law;
-  2. redistribute, sublicense, rent, lease, or sell the software, or make it
-     available to third parties as part of a paid service, without the prior
-     written permission of the copyright holder;
-  3. remove or alter this notice.
+You may download, install and run BondVPN, on any number of machines you own or
+administer personally, for:
 
-The source code is not distributed and no rights to it are granted by this
-licence.
+  a. personal and household use;
+  b. education, teaching and academic research;
+  c. evaluation within an organisation, for up to 30 days, to decide whether to
+     licence it.
+
+You may keep copies and backups for your own use.
+
+2. WHAT REQUIRES A PAID LICENCE
+
+Any other use is commercial use, and needs a licence agreed with the copyright
+holder in writing. Commercial use includes, without limitation:
+
+  a. use in or for the benefit of a business, government body or other
+     organisation, beyond the 30-day evaluation above;
+  b. providing a service to other people that relies on BondVPN, whether or not
+     those people are charged;
+  c. including BondVPN, or anything containing it, in a product, appliance or
+     paid offering.
+
+To arrange a commercial licence, open an issue on the project's repository.
+
+3. IMPROVEMENTS COME BACK
+
+BondVPN is distributed as binaries; no source code is published, so in normal
+use there is nothing for you to modify. If source code is ever made available
+to you, then for any changes you make:
+
+  a. you must offer those changes back to the copyright holder, in source form,
+     before or when you first rely on them beyond your own machine;
+  b. you grant the copyright holder a perpetual, worldwide, irrevocable,
+     royalty-free, sublicensable licence to use, modify and distribute those
+     changes as part of BondVPN, under any terms;
+  c. you keep your own copyright in what you wrote. This is a licence to the
+     copyright holder, not a transfer of ownership.
+
+You may not distribute a modified version to anyone else without written
+permission.
+
+4. WHAT YOU MAY NOT DO
+
+  a. redistribute, sublicense, rent, lease or sell the software, or make it
+     available to third parties as part of a paid service, without written
+     permission;
+  b. remove, disable or work around the licence check described below;
+  c. remove or alter copyright notices, including this file;
+  d. decompile, disassemble or otherwise reverse engineer the software, except
+     to the extent that this restriction cannot lawfully be excluded.
+
+5. THE LICENCE CHECK
+
+BondVPN fetches a small signed status file once an hour to confirm this
+installation is still licensed. The request carries no identifier of any kind -
+no install ID, no address, no telemetry - and nothing about it distinguishes
+your copy from anyone else's. It is documented in the README rather than left
+to be discovered.
+
+If no valid status has been seen for 24 hours, BondVPN withdraws the client
+routing and exits, leaving its kill switch armed. A stopped installation goes
+quiet; it never opens a path around your tunnels.
+
+6. NO WARRANTY
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT
-HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-This software routes network traffic and blocks it when its tunnels are down. It
-is not a guarantee of anonymity or privacy. Verify your own configuration with
+BondVPN routes network traffic and blocks it when its tunnels are down. It is
+not a guarantee of anonymity or privacy. Verify your own configuration with
 `bondvpn leak-test` before relying on it.
+
+7. IF YOU BREAK THESE TERMS
+
+Your rights under this licence end automatically. They are restored if you put
+the breach right within 30 days of being told about it.
+
+8. EARLIER VERSIONS
+
+Releases before this licence permitted commercial use at no charge. Copies
+already obtained under those terms keep them. This licence governs the versions
+published with it, and later ones.

@@ -15,12 +15,12 @@ way that application actually wants:
   direct HTTP open many independent connections to one server, each
   authenticating separately, so a rotating source address costs nothing and you
   get the sum of your tunnels.
-- **Nothing leaks.** With every tunnel down, clients have no path out at all —
+- **Nothing leaks.** With every tunnel down, clients have no path out at all â€”
   and `bondvpn leak-test` proves it by measuring, not by asserting.
 
-Free to use. Ships configured for three tunnels; up to five are supported.
+Free for personal use; commercial use needs a licence. Ships configured for three tunnels; up to five are supported.
 
-**New here?** [SETUP.md](SETUP.md) walks the whole thing end to end — a bare
+**New here?** [SETUP.md](SETUP.md) walks the whole thing end to end â€” a bare
 Linux box to Sonarr, Radarr, Prowlarr, sabnzbd and three qBittorrents, each
 leaving through the exit you chose for it. It includes deploying the arr stack
 if you don't already have one.
@@ -29,11 +29,11 @@ if you don't already have one.
 
 *The interface BondVPN serves, on a gateway with three tunnels bonded. Every
 figure in this shot is invented and every address comes from the documentation
-ranges — it is the real page, not a mockup, rendered against a fixture.*
+ranges â€” it is the real page, not a mockup, rendered against a fixture.*
 
 ## The interface
 
-`bondvpn run` serves a page at the root of `listen` — the same address as the
+`bondvpn run` serves a page at the root of `listen` â€” the same address as the
 API, so with the default `listen: 127.0.0.1:8099` it is at
 <http://127.0.0.1:8099/> on the gateway itself.
 
@@ -58,17 +58,17 @@ Three things worth knowing:
   pulled a font or a script from a CDN would break at exactly the moment you
   opened it to find out what broke.
 - **It shows only what `/status` carries**, so no panel can quietly invent a
-  number. Torrent queues, imports and service tiles are not in it — those belong
+  number. Torrent queues, imports and service tiles are not in it â€” those belong
   to your download stack, not to a VPN router, and BondVPN holds no credentials
   for them.
 - **There is no login.** It is a read-only view of one machine's own routing,
   reachable from that machine or its container network. Moving `listen` to a LAN
-  address publishes it to your whole network — put a reverse proxy with a login
+  address publishes it to your whole network â€” put a reverse proxy with a login
   in front of it if that is what you want.
 
 ## Quick start: the container
 
-A prebuilt image that needs three things from you — your VPN keys, where
+A prebuilt image that needs three things from you â€” your VPN keys, where
 downloads land, and where the finished media lives.
 
 ```bash
@@ -88,12 +88,12 @@ LIBRARY_DIR=/srv/media         # where the finished media lives
 
 **There is no config file to write.** On first start the container reads
 whatever `.conf` files you mounted, in name order, and generates
-`/etc/bondvpn/config.yml` around them — client subnet, DNS, listen address and
+`/etc/bondvpn/config.yml` around them â€” client subnet, DNS, listen address and
 the two disks all have working defaults. Then it runs `bondvpn check` and prints
 the result before routing anything, so a container that cannot work says why in
 its own logs instead of restart-looping in silence.
 
-Mount your own `/etc/bondvpn/config.yml` and it is used untouched — a
+Mount your own `/etc/bondvpn/config.yml` and it is used untouched â€” a
 hand-written config always wins.
 
 ```
@@ -113,22 +113,22 @@ No problems. Safe to start.
 
 The interface is then at <http://127.0.0.1:8099/> on that machine.
 
-**It starts three torrent clients, one per tunnel** — `10.99.0.10`, `.11` and
-`.12`, on ports 8081–8083. That is not padding: a single pinned client sits on
+**It starts three torrent clients, one per tunnel** â€” `10.99.0.10`, `.11` and
+`.12`, on ports 8081â€“8083. That is not padding: a single pinned client sits on
 one tunnel and leaves the other two carrying nothing, which is one tunnel's
 throughput from a product whose whole point is the sum of them. Pinned clients
 are dealt round-robin across the live tunnels in the order they appear in `PIN`,
 so three clients and three tunnels is one each, and every tunnel does work.
 
 Want fewer, or more? Add or remove a client service and its address in `PIN`.
-Each one needs its own web port, peer port, address and config volume — sharing
+Each one needs its own web port, peer port, address and config volume â€” sharing
 any of the four is the usual way this goes wrong. More clients than tunnels
 simply wrap, so a fourth would share a tunnel with the first.
 
 **Two things this needs that a normal container does not:**
 
 - `network_mode: host` and `NET_ADMIN`. BondVPN configures the kernel's routing
-  tables, rules and firewall — that is the entire job. In its own network
+  tables, rules and firewall â€” that is the entire job. In its own network
   namespace it would route a namespace nobody else is in.
 - The multipath hash policy is a **host** setting. Without it every connection
   to a given server lands on one tunnel and the bond does nothing. Either run
@@ -153,7 +153,7 @@ sudoedit /etc/bondvpn/config.yml
 sudo systemctl enable --now bondvpn
 ```
 
-Or run `sudo ./install.sh` from the directory holding the downloaded binary — it
+Or run `sudo ./install.sh` from the directory holding the downloaded binary â€” it
 does the same thing, picks the right architecture, and will not overwrite a
 config you already have.
 
@@ -175,7 +175,7 @@ you find out immediately rather than a week later:
 [Interface]
 Table = off                 # REQUIRED. Otherwise wg-quick installs its own
                             # default route and fights BondVPN for the routing
-                            # table — your traffic takes the wrong tunnel and
+                            # table â€” your traffic takes the wrong tunnel and
                             # nothing reports an error.
 # DNS = 10.64.0.1           # REMOVE this line. wg-quick uses it to rewrite
                             # your machine's own resolver, and fails outright
@@ -210,7 +210,7 @@ perfectly healthy.
 ### DNS is enforced, not suggested
 
 `dns:` is required, and every DNS query leaving your client subnet is rewritten
-in the kernel to that resolver, over the tunnels — whatever the container itself
+in the kernel to that resolver, over the tunnels â€” whatever the container itself
 is set to use.
 
 Merely allowing DNS is not enough: a container pointed at a public resolver
@@ -227,8 +227,8 @@ sudo bondvpn check
 
 It reads the config, every WireGuard file that config names, this machine's
 interfaces, the listen address and the disks, and prints **everything** it finds
-in one pass. It changes nothing — no rules, no routes, no interfaces brought up
-— so it is safe on a box that is already carrying traffic.
+in one pass. It changes nothing â€” no rules, no routes, no interfaces brought up
+â€” so it is safe on a box that is already carrying traffic.
 
 ```
 bondvpn 1.5.1 - checking /etc/bondvpn/config.yml
@@ -252,7 +252,7 @@ status api and interface
 ```
 
 Exit code is 1 if anything failed and 0 if only warnings remain, so it drops
-into a provisioning script. Warnings are advice, not faults — an unreadable disk
+into a provisioning script. Warnings are advice, not faults â€” an unreadable disk
 or a missing `PersistentKeepalive` still lets the gateway route, and the summary
 says so.
 
@@ -266,7 +266,7 @@ bondvpn stop         # tunnels down AND the kill switch removed
 ```
 
 `status` is read-only and safe at any time. `stop` is the only command that
-disarms the kill switch — restarting or killing the daemon deliberately leaves
+disarms the kill switch â€” restarting or killing the daemon deliberately leaves
 it armed, so there is never a window where your clients route straight out of
 your ISP connection.
 
@@ -274,8 +274,8 @@ your ISP connection.
 
 `run` serves the same document over HTTP on `listen` (loopback by default):
 
-- `GET /status` — the full JSON document
-- `GET /healthz` — 200 when healthy, 503 with the reasons when not
+- `GET /status` â€” the full JSON document
+- `GET /healthz` â€” 200 when healthy, 503 with the reasons when not
 
 It exposes tunnel endpoints and client addresses and has no authentication of
 its own. Put a reverse proxy in front of it if you want it on your LAN.
@@ -311,7 +311,7 @@ keep it green.
 
 `leak-test` drops every tunnel for around thirty seconds, then probes a
 hostname, a raw IP and ICMP from a throwaway network namespace attached to your
-container bridge — kernel-wise indistinguishable from one of your containers, so
+container bridge â€” kernel-wise indistinguishable from one of your containers, so
 it is matched by exactly the same firewall rules. Then it restores the tunnels
 and verifies your pinned clients came back spread across them.
 
@@ -323,7 +323,7 @@ perfectly legitimately while every container is sealed.
 
 `status` and `/healthz` name the silent failures, not just the loud ones:
 
-- a tunnel that is up but has not handshaken — it will blackhole whatever is
+- a tunnel that is up but has not handshaken â€” it will blackhole whatever is
   routed into it, and "up" means very little on WireGuard
 - every pinned client landing on the same tunnel, which looks healthy because
   traffic still flows
@@ -340,13 +340,13 @@ perfectly legitimately while every container is sealed.
 And whatever it can repair, it repairs:
 
 - the kill switch, the address translation and the DNS redirect, if anything
-  removes them — a firewall reload takes them out silently, and a kill switch
+  removes them â€” a firewall reload takes them out silently, and a kill switch
   failing open is exactly the case where nobody is watching
 - the routing rules **and** the routes inside them. Deleting an interface
   silently empties the table that routed through it while the rule pointing at
   that table survives, so a tunnel that drops and returns would otherwise leave
   one client with no way out and everything else looking fine
-- the tunnels themselves — a tunnel that goes down is started again, and one
+- the tunnels themselves â€” a tunnel that goes down is started again, and one
   that is up but has stopped handshaking (which blackholes whatever is routed
   into it) is cycled. Without that, one blip leaves you permanently down a
   tunnel while everything reports itself healthy.
@@ -355,7 +355,7 @@ And whatever it can repair, it repairs:
 
 Five WireGuard configs consumes an entire Mullvad device allowance, leaving none
 for your phone or laptop. Past three tunnels a single home connection is usually
-the bottleneck rather than the tunnels. Raise it if your line is fast enough —
+the bottleneck rather than the tunnels. Raise it if your line is fast enough â€”
 `tunnels:` accepts up to five entries.
 
 ## Licence check
@@ -363,7 +363,7 @@ the bottleneck rather than the tunnels. Raise it if your line is fast enough —
 BondVPN checks that this installation is still licensed. Once an hour it fetches
 the same signed [`license.json`](license.json) that this repository serves,
 trying `bondvpn-licence.bondvpn.workers.dev` first and falling back to the
-repository copy — a plain GET of a static file either way.
+repository copy â€” a plain GET of a static file either way.
 
 **No identifiers are sent**: no install ID, no address, no telemetry, nothing
 that distinguishes your copy from anyone else's. The request is identical for
@@ -386,9 +386,19 @@ What happens if it fails:
 
 ## Licence and support
 
-Proprietary; see [LICENSE](LICENSE). Free to install and use on any number of
-machines you own or administer. The source is not distributed, so this
-repository holds the documentation and the releases only.
+Proprietary; see [LICENSE](LICENSE). **Free for personal, household and
+educational use** on any number of machines you own or administer, and free to
+evaluate inside an organisation for 30 days. Beyond that, use in or for a
+business — including running a service other people rely on — needs a paid
+licence: open an issue and we will sort it out.
+
+If source is ever shared with you, improvements come back: you offer them to me
+and license me to fold them into BondVPN, while keeping your own copyright in
+what you wrote.
+
+The source is not distributed, so this repository holds the documentation and
+the releases only. Releases published before this licence allowed commercial
+use at no charge, and copies obtained then keep those terms.
 
 Bug reports and feature requests are welcome in
 [Issues](https://github.com/wonderingStars/bondvpn/issues). Include the output
