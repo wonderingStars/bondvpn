@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -33,9 +34,33 @@ func ifaceNameFor(configPath string) string {
 	return strings.TrimSuffix(filepath.Base(configPath), filepath.Ext(configPath))
 }
 
+// backend is worked out once, on the first tunnel operation, and reused. The
+// probe creates and deletes an interface, which is cheap but not free, and the
+// answer cannot change while the daemon runs without somebody loading a kernel
+// module underneath it.
+var backend = struct {
+	once  bool
+	value wgBackend
+}{}
+
+func currentBackend() wgBackend {
+	if !backend.once {
+		backend.value = detectBackend()
+		backend.once = true
+	}
+	return backend.value
+}
+
 // readTunnels gathers the current state of every configured tunnel.
 func readTunnels(cfg *Config) []*Tunnel {
 	handshakes := readHandshakes()
+	// wireguard-go keeps its state behind a control socket rather than in the
+	// kernel, so `wg show` knows nothing about those tunnels.
+	if currentBackend() == backendUserspace {
+		for iface, ts := range uapiHandshakes() {
+			handshakes[iface] = ts
+		}
+	}
 	transfer := readTransfer()
 	endpoints := readEndpoints()
 
@@ -128,14 +153,32 @@ func readEndpoints() map[string]string {
 	return out
 }
 
-// bringUp starts a tunnel. wg-quick reads the config from /etc/wireguard by
-// name, so a config living elsewhere is passed by path.
+// bringUp starts a tunnel, using whichever backend this machine has.
+//
+// The kernel is always preferred. wireguard-go is a fallback for kernels that
+// have no WireGuard at all - a Synology NAS on DSM 7.3 runs kernel 4.4, which
+// predates it by a decade - and it is slower, because packets cross the
+// user/kernel boundary twice.
 func bringUp(t *Tunnel) error {
-	_, err := run(45*time.Second, "wg-quick", "up", t.ConfigPath)
-	return err
+	switch currentBackend() {
+	case backendUserspace:
+		return upUserspace(t)
+	case backendNone:
+		return fmt.Errorf("this machine has neither kernel WireGuard nor wireguard-go: " +
+			"install wireguard-tools, or wireguard-go plus the tun module")
+	default:
+		// wg-quick reads the config from /etc/wireguard by name, so a config
+		// living elsewhere is passed by path.
+		_, err := run(45*time.Second, "wg-quick", "up", t.ConfigPath)
+		return err
+	}
 }
 
 func bringDown(t *Tunnel) {
+	if currentBackend() == backendUserspace {
+		downUserspace(t)
+		return
+	}
 	quiet(30*time.Second, "wg-quick", "down", t.ConfigPath)
 }
 
