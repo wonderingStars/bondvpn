@@ -111,10 +111,28 @@ func cmdCheck(path string, out io.Writer) int {
 		}
 	}
 
-	for _, tool := range []string{"wg", "wg-quick", "ip", "iptables"} {
-		if _, err := exec.LookPath(tool); err != nil {
-			fail("%s is not installed - bondvpn cannot bring tunnels up without it", tool)
+	// How tunnels will actually be made, which decides which tools are needed.
+	// A NAS whose kernel has no WireGuard needs wireguard-go and nothing else;
+	// demanding wg-quick there would fail a machine that works perfectly well.
+	switch currentBackend() {
+	case backendKernel:
+		pass("kernel WireGuard is available")
+		for _, tool := range []string{"wg", "wg-quick", "ip", "iptables"} {
+			if _, err := exec.LookPath(tool); err != nil {
+				fail("%s is not installed - bondvpn cannot bring tunnels up without it", tool)
+			}
 		}
+	case backendUserspace:
+		pass("no kernel WireGuard, using wireguard-go over /dev/net/tun (slower than the kernel)")
+		for _, tool := range []string{"ip", "iptables"} {
+			if _, err := exec.LookPath(tool); err != nil {
+				fail("%s is not installed - bondvpn cannot route without it", tool)
+			}
+		}
+	default:
+		fail("this machine has no way to create a WireGuard interface: no kernel " +
+			"module, and wireguard-go is not installed. Install wireguard-tools, " +
+			"or wireguard-go plus the tun module.")
 	}
 	if _, err := exec.LookPath("ip6tables"); err != nil {
 		warn("ip6tables is not installed - the IPv6 side of the kill switch cannot be armed")

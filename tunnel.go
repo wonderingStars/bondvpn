@@ -250,7 +250,14 @@ func recoverTunnels(cfg *Config, tunnels []*Tunnel, lastAttempt map[string]time.
 			}
 		case RecoverRestart:
 			lastAttempt[t.Name] = now
-			logf("%s has not handshaken in %ds - cycling it", t.Name, t.HandshakeAge)
+			// -1 means it has never handshaken at all. "in -1s" reads as a bug in
+			// the tool at exactly the moment someone is diagnosing a dead
+			// endpoint - the worst possible time to lose their trust in it.
+			if t.HandshakeAge < 0 {
+				logf("%s has never completed a handshake - cycling it", t.Name)
+			} else {
+				logf("%s has not handshaken in %ds - cycling it", t.Name, t.HandshakeAge)
+			}
 			bringDown(t)
 			if err := bringUp(t); err != nil {
 				logf("%s did not come back: %v", t.Name, err)

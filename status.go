@@ -19,6 +19,10 @@ type Status struct {
 	HashPolicy int    `json:"hash_policy"`
 	NAT        bool   `json:"nat"`
 	DNSForced  bool   `json:"dns_forced"`
+	// Which implementation is creating the tunnels. Worth surfacing: userspace
+	// is markedly slower than the kernel, so "why is this slower than I
+	// expected" has a visible answer rather than needing a bug report.
+	Backend string `json:"wireguard_backend"`
 	// Reported so a dashboard can show it. Purely informational: nothing in
 	// the daemon acts on either field.
 	UpdateAvailable bool             `json:"update_available"`
@@ -73,6 +77,7 @@ func buildStatus(cfg *Config, tunnels []*Tunnel, plan *Plan) *Status {
 		HashPolicy: readHashPolicy(),
 		NAT:        natArmed(cfg.Clients),
 		DNSForced:  dnsForced(cfg),
+		Backend:    currentBackend().String(),
 		Host:       readHost(cfg),
 		KillSwitch: KillSwitchStatus{
 			V4: killSwitchArmed(cfg.Clients),
@@ -133,8 +138,18 @@ func buildStatus(cfg *Config, tunnels []*Tunnel, plan *Plan) *Status {
 		s.Problems = append(s.Problems,
 			"IPv4 kill switch is NOT armed - traffic could leave outside the tunnels")
 	}
+	// Only a problem where IPv6 could actually leave. A machine that does not
+	// forward IPv6 cannot route it between interfaces however the firewall is
+	// set, and DSM's ip6tables has no REJECT target at all - reporting a
+	// permanent problem there would train people to ignore the problem list.
 	if !s.KillSwitch.V6 {
-		s.Problems = append(s.Problems, "IPv6 is not blocked")
+		if ipv6Forwarding() {
+			s.Problems = append(s.Problems,
+				"IPv6 is not blocked and this machine forwards IPv6 - traffic could leave outside the tunnels")
+		} else {
+			s.Warnings = append(s.Warnings,
+				"the IPv6 kill switch is not armed, but this machine does not forward IPv6, so nothing can leave that way")
+		}
 	}
 	// Its absence is invisible everywhere else: tunnels handshake, routing is
 	// correct, counters move, and every request dies silently at the far end.
@@ -158,10 +173,14 @@ func buildStatus(cfg *Config, tunnels []*Tunnel, plan *Plan) *Status {
 	// ensureHashPolicy failing as non-fatal. Making it a problem meant the
 	// quickstart container - which cannot set this sysctl without --privileged -
 	// reported itself permanently unhealthy while its pinned workload ran fine.
-	if s.HashPolicy != 1 {
-		s.Warnings = append(s.Warnings,
-			"fib_multipath_hash_policy is not 1 - bonded (not pinned) clients will "+
-				"land on one tunnel. Set it on the host: sysctl -w net.ipv4.fib_multipath_hash_policy=1")
+	// A kernel with no multipath routing cannot bond at all. Said once, plainly,
+	// because the symptom otherwise is "bonded clients all came out of one
+	// tunnel" with nothing anywhere explaining why - and because the sysctl
+	// advice below is worse than useless there: the file does not exist, so
+	// anyone following it gets an error and no idea what to do next. HashPolicy
+	// is -1 when the file is absent, which is exactly that case.
+	if w := multipathWarning(multipathMissing, s.HashPolicy); w != "" {
+		s.Warnings = append(s.Warnings, w)
 	}
 	// Pinned clients collapsing onto one tunnel is the failure this product
 	// exists to prevent, and it looks healthy because traffic still flows.
@@ -253,12 +272,53 @@ func ensureHashPolicy() error {
 		return nil
 	}
 	if err := os.WriteFile(hashPolicyPath, []byte("1\n"), 0o644); err != nil {
+		// The file being absent is not a permission problem to be worked around;
+		// it means the kernel was built without CONFIG_IP_ROUTE_MULTIPATH and
+		// bonding is unavailable here at all. Say that rather than printing a
+		// path nobody can create. (Synology DSM 7.3, kernel 4.4.302.)
+		if os.IsNotExist(err) {
+			return fmt.Errorf("this kernel has no multipath routing " +
+				"(CONFIG_IP_ROUTE_MULTIPATH), so bonding is unavailable - pinned " +
+				"clients still work")
+		}
 		return fmt.Errorf("could not set fib_multipath_hash_policy=1: %v", err)
 	}
 	return nil
 }
 
+// ipv6Blocked has to accept whichever form applyKillSwitch6 managed to install.
+//
+// Looking only for REJECT was wrong on any machine that had to fall back, and
+// the failure was not cosmetic: repairFirewall re-armed the entire kill switch
+// every fifteen seconds for the life of the daemon, and status carried an IPv6
+// problem no amount of correct configuration could clear. Seen on a Synology
+// NAS, whose ip6tables cannot load the REJECT target at all.
+// multipathWarning picks which of the two very different situations to report,
+// or neither. Returning the wrong one costs someone an afternoon: the sysctl
+// advice is unfollowable on a kernel where the file does not exist.
+func multipathWarning(missing bool, hashPolicy int) string {
+	if missing || hashPolicy < 0 {
+		return "this kernel has no multipath routing, so bonded clients all share " +
+			"one tunnel. Pinned clients are unaffected, and that is the whole of " +
+			"what a Synology NAS can do."
+	}
+	if hashPolicy != 1 {
+		return "fib_multipath_hash_policy is not 1 - bonded (not pinned) clients " +
+			"will land on one tunnel. Set it on the host: " +
+			"sysctl -w net.ipv4.fib_multipath_hash_policy=1"
+	}
+	return ""
+}
+
 func ipv6Blocked() bool {
-	_, err := run(10*time.Second, "ip6tables", "-C", chain, "-j", "REJECT")
-	return err == nil
+	for _, action := range [][]string{{"-j", "REJECT"}, {"-j", "DROP"}} {
+		if _, err := run(10*time.Second, "ip6tables",
+			append([]string{"-C", chain}, action...)...); err == nil {
+			return true
+		}
+	}
+	// Neither is installed. On a kernel that does not forward IPv6 there is
+	// nothing to block, which is why applyKillSwitch6 accepts that case - and
+	// this check has to agree with it or the two fight each other forever.
+	return !ipv6Forwarding()
 }

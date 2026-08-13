@@ -36,23 +36,33 @@ All three are static, so the distribution's age does not matter.
 
 ### Running it on a Synology NAS
 
-The binary will run — but on DSM the CPU is the easy part, and the rest usually
-is not. Read this before spending an evening on it.
+It works, with one real limitation. All of the below was measured on a DS1019+
+running DSM 7.3 (kernel 4.4.302), not inferred from documentation.
 
-- **DSM ships no WireGuard.** No kernel module, and no `wg` or `wg-quick`. There
-  are community packages that build the module for a specific DSM version and
-  platform, and they break every DSM update. Without them, nothing here works,
-  because BondVPN drives WireGuard rather than implementing it.
-- **DSM's `ip` is cut down** and its firewall is managed by DSM itself, which
-  will fight anything that rewrites iptables underneath it.
-- **`bondvpn check` tells you the truth in one command.** It looks for `wg`,
-  `wg-quick`, `ip` and `iptables`, reads your configs, and changes nothing. Run
-  that first on any NAS; if it reports missing tools, stop there.
+- **You get WireGuard without a kernel module.** DSM ships none, and no `wg` or
+  `wg-quick` either. BondVPN detects that and runs `wireguard-go` over
+  `/dev/net/tun` instead. Slower than the kernel and entirely usable. Put the
+  `wireguard-go` binary next to `bondvpn`, or anywhere on `PATH`.
+- **You do NOT get bonding.** DSM's kernel is built without
+  `CONFIG_IP_ROUTE_MULTIPATH`, so ECMP does not exist to be configured — every
+  `nexthop` route is refused outright. That is a kernel build option, and no
+  userspace trick substitutes for it. **Pinning works normally**, so each
+  container can have its own tunnel and its own exit address; what you cannot do
+  is spread one client across several tunnels. For BitTorrent, pinning was
+  always the better mode anyway.
+- **Binaries must live under `/volume1`.** DSM mounts `/tmp` `noexec`, so a
+  binary copied there will `chmod +x` happily and then refuse to run.
+- **The firewall adapts.** DSM's iptables has no `--reject-with` and its
+  ip6tables cannot load REJECT at all; BondVPN falls back to DROP rather than
+  refusing to start. DSM manages its own firewall, so expect to keep an eye on
+  it.
+- **`bondvpn check` tells you the truth in one command.** It reports which
+  WireGuard backend you will get and changes nothing. Run it first.
 
-Honestly: a €60 second-hand mini PC or a spare Pi makes a far better gateway
-than a NAS, and leaves the NAS doing what it is good at. Point the containers on
-the NAS at the gateway instead — that is the arrangement this was built for, and
-it is what the author runs.
+Still worth saying: a second-hand mini PC or a spare Pi makes a better gateway
+than a NAS, gives you actual bonding, and leaves the NAS doing what it is good
+at. Point the containers on the NAS at that gateway — it is the arrangement this
+was built for and the one the author runs.
 
 ---
 

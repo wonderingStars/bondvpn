@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.7.0
+
+### It runs on a NAS
+
+Everything in this release was found by running BondVPN on a Synology DS1019+
+(DSM 7.3, kernel 4.4.302) and fixing whatever it hit. That box has no kernel
+WireGuard, no multipath routing, an iptables without `--reject-with`, an
+ip6tables that cannot load REJECT at all, and a noexec `/tmp`. It now works
+there, within the limits the kernel imposes.
+
+**WireGuard in userspace where the kernel has none.** The backend is detected at
+startup by creating a probe interface, and falls back to `wireguard-go` over
+`/dev/net/tun`. Slower than the kernel, and it is the difference between working
+and not working on hardware nobody can recompile. `status` reports which backend
+is in use.
+
+**Bonding degrades honestly on a kernel without multipath.** ECMP is a kernel
+feature; where `CONFIG_IP_ROUTE_MULTIPATH` is absent there is no userspace
+substitute for it. A single tunnel now uses the plain `dev` route form rather
+than a one-entry multipath route, which the old code emitted and that kernel
+refused with EINVAL - so routing failed entirely and every client lost its
+route. Where several tunnels are configured and multipath is refused, they all
+take the first live tunnel instead of none, and `status` says so. **Pinning is
+unaffected, and on a NAS pinning is the whole of what is available.**
+
+**The firewall falls back instead of refusing to start.** Where `--reject-with`
+is unsupported the kill switch uses DROP, and where ip6tables has no REJECT
+target it tries DROP next. If neither can be installed, that is fatal only on a
+machine that actually forwards IPv6 - on one that does not, there is nothing to
+leak and refusing to start would be theatre.
+
+### Fixed
+
+- **The daemon re-armed the kill switch every fifteen seconds, forever,** on any
+  machine that had to fall back to DROP. Both the armed-check and the IPv6 check
+  looked for REJECT specifically, so they never saw the rule that was actually
+  installed - and `status` carried an IPv6 problem no configuration could clear.
+- **`stop` left the IPv6 rule behind** for the same reason: it only deleted the
+  REJECT form.
+- A tunnel that had never handshaken was logged as "has not handshaken in -1s"
+  when cycled. `status` already said this properly; the recovery log did not.
+- The advice to run `sysctl -w net.ipv4.fib_multipath_hash_policy=1` was
+  printed on kernels where that file cannot exist. It now explains that the
+  kernel has no multipath routing, which is a different problem with a different
+  answer.
+
 ## 1.6.0
 
 ### Open source, AGPLv3

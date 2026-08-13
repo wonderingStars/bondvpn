@@ -79,12 +79,17 @@ func TestHashPolicyIsWarnNotProblem(t *testing.T) {
 	s := buildStatus(cfg, []*Tunnel{{Name: "wg0", Up: true, HandshakeAge: 5}}, plan)
 	// On a dev box HashPolicy reads -1 (path absent), so it is != 1 and must be
 	// a warning, never a problem.
+	//
+	// Which warning depends on WHY: a settable-but-unset sysctl gets the fix, an
+	// absent one gets told the kernel cannot bond at all (see
+	// TestMultipathWarningDoesNotAdviseAMissingSysctl). This test is about the
+	// warning/problem split, so it accepts either wording.
 	if s.HashPolicy != 1 {
-		if strings.Contains(strings.Join(s.Problems, "|"), "fib_multipath_hash_policy") {
-			t.Error("hash policy is in Problems; it must be a warning")
+		if strings.Contains(strings.Join(s.Problems, "|"), "multipath") {
+			t.Error("multipath is in Problems; it must be a warning")
 		}
-		if !strings.Contains(strings.Join(s.Warnings, "|"), "fib_multipath_hash_policy") {
-			t.Errorf("hash policy should be a warning, warnings: %v", s.Warnings)
+		if !strings.Contains(strings.Join(s.Warnings, "|"), "multipath") {
+			t.Errorf("multipath should be a warning, warnings: %v", s.Warnings)
 		}
 	}
 }

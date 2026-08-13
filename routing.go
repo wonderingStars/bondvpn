@@ -70,19 +70,56 @@ func (p *Plan) Apply(cfg *Config) error {
 	return p.applyRules(cfg)
 }
 
-// applyBondTable installs one default route with a nexthop per live tunnel.
+// multipathMissing records that this kernel cannot do ECMP at all, so `status`
+// can say so once rather than leaving bonded clients silently on one tunnel.
+var multipathMissing bool
+
+// bondRouteArgs builds the default route for the bond table.
+//
+// A single tunnel gets the plain `dev` form rather than a one-entry multipath
+// route. That is not tidiness: Synology's kernel 4.4 has no
+// CONFIG_IP_ROUTE_MULTIPATH, and there `nexthop dev wg0 weight 1` fails with
+// EINVAL while `dev wg0` succeeds - measured on the hardware, every syntax
+// variant tried.
+func bondRouteArgs(table string, ifaces []string) []string {
+	if len(ifaces) == 1 {
+		return []string{"route", "replace", "default", "dev", ifaces[0], "table", table}
+	}
+	args := []string{"route", "replace", "default", "table", table}
+	for _, iface := range ifaces {
+		args = append(args, "nexthop", "dev", iface, "weight", "1")
+	}
+	return args
+}
+
+// applyBondTable installs the default route the bonded clients use.
+//
+// Where the kernel has no multipath routing, bonding is not available at all -
+// it is a kernel feature, and no userspace trick substitutes for it. Rather
+// than leave bonded clients with no route, they all take the first live tunnel,
+// which is what a pin would have given them, and status says so.
 func (p *Plan) applyBondTable() error {
 	table := fmt.Sprint(BondTable)
 	quiet(5*time.Second, "ip", "route", "flush", "table", table)
 	if len(p.Bond) == 0 {
 		return nil
 	}
-	args := []string{"route", "replace", "default", "table", table}
-	for _, iface := range p.Bond {
-		args = append(args, "nexthop", "dev", iface, "weight", "1")
+
+	_, err := run(10*time.Second, "ip", bondRouteArgs(table, p.Bond)...)
+	if err == nil {
+		return nil
 	}
-	_, err := run(10*time.Second, "ip", args...)
-	return err
+	if len(p.Bond) == 1 {
+		return err
+	}
+
+	// Multipath refused. Fall back to one tunnel rather than none.
+	if _, fallbackErr := run(10*time.Second, "ip",
+		bondRouteArgs(table, p.Bond[:1])...); fallbackErr != nil {
+		return err // report the original failure, which is the informative one
+	}
+	multipathMissing = true
+	return nil
 }
 
 // applyPinTables gives each live tunnel its own table with a single default.
