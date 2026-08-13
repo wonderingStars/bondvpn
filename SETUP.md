@@ -24,6 +24,36 @@ first, because BondVPN routes by container address and yours need to be fixed.
 
 Time: about half an hour, most of it waiting for containers to pull.
 
+### Which binary
+
+| Build | For |
+|---|---|
+| `bondvpn-linux-amd64` | x86-64: servers, NUCs, VMs, Intel/AMD Synology models |
+| `bondvpn-linux-arm64` | 64-bit ARM: Raspberry Pi 4/5, newer ARM Synology models |
+| `bondvpn-linux-armv7` | 32-bit ARM: Pi 2/3 on a 32-bit OS, older Synology DS-j models |
+
+All three are static, so the distribution's age does not matter.
+
+### Running it on a Synology NAS
+
+The binary will run — but on DSM the CPU is the easy part, and the rest usually
+is not. Read this before spending an evening on it.
+
+- **DSM ships no WireGuard.** No kernel module, and no `wg` or `wg-quick`. There
+  are community packages that build the module for a specific DSM version and
+  platform, and they break every DSM update. Without them, nothing here works,
+  because BondVPN drives WireGuard rather than implementing it.
+- **DSM's `ip` is cut down** and its firewall is managed by DSM itself, which
+  will fight anything that rewrites iptables underneath it.
+- **`bondvpn check` tells you the truth in one command.** It looks for `wg`,
+  `wg-quick`, `ip` and `iptables`, reads your configs, and changes nothing. Run
+  that first on any NAS; if it reports missing tools, stop there.
+
+Honestly: a €60 second-hand mini PC or a spare Pi makes a far better gateway
+than a NAS, and leaves the NAS doing what it is good at. Point the containers on
+the NAS at the gateway instead — that is the arrangement this was built for, and
+it is what the author runs.
+
 ---
 
 ## 1. Prerequisites
