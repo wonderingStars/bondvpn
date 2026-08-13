@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.6.0
+
+### Open source, AGPLv3
+
+The source is published. Run it, read it, change it, share it, at home or at
+work, at no charge. The obligation that matters is section 13: modify it, let
+other people use the modified version over a network, and those users can ask
+for your source. Running it unmodified, or modifying it for yourself, asks
+nothing.
+
+AGPL rather than MIT because it is the licence that keeps improvements coming
+back without giving away the commercial position. A company building a paid
+service on a modified copy either publishes their work or takes a commercial
+licence, and almost all of them take the licence. See COMMERCIAL.md, which
+spells out when a paid licence is NOT needed - which is most of the time.
+
+CONTRIBUTING.md carries the condition dual licensing depends on: contributors
+license their work for use under other terms while keeping their own copyright.
+
+### The licence heartbeat is gone
+
+It withdrew client routing and exited after 24 hours without a valid signed
+status. That is indefensible in software people can compile themselves: the
+first fork would be the one with those lines deleted, and it would deserve to
+become the version everybody runs.
+
+The same hourly request now reports whether a newer release exists, and nothing
+more. It cannot stop, exit or unroute anything - a test fails if `update.go`
+ever references `flushOurRules`, `os.Exit` or `Shutdown` - and `update_check:
+false` turns it off entirely. `status` gained `update_available` and
+`latest_version`; `licensed` is gone.
+
+Version comparison is numeric per field, because string comparison puts 1.10.0
+before 1.9.0 and would tell everyone on the newest build they were out of date.
+
 ## 1.5.2
 
 A production-readiness review (32 reviewers, every finding adversarially
