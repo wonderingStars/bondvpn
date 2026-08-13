@@ -91,7 +91,7 @@ func RestoreTunnels(cfg *Config, tunnels []*Tunnel, apply func(*Plan) error) err
 	deadline := time.Now().Add(60 * time.Second)
 	for time.Now().Before(deadline) {
 		fresh := readTunnels(cfg)
-		if len(liveTunnels(fresh, cfg.StaleAfter)) >= len(cfg.Tunnels) {
+		if len(liveTunnels(fresh, cfg.StaleAfter)) >= len(cfg.tunnelPaths()) {
 			break
 		}
 		time.Sleep(2 * time.Second)

@@ -166,6 +166,31 @@ tr:last-child td{border-bottom:0}
    things to know, not things to fix. */
 .plist li.note{color:var(--dim)}
 .plist li.note::before{content:"\2022";color:var(--dim)}
+
+/* settings: adding a tunnel is the one thing on this page that writes, so it
+   reads as a distinct area rather than another readout */
+#settings .row{display:flex;align-items:center;gap:8px;padding:7px 0;
+  border-bottom:1px solid var(--hair)}
+#settings .row:last-child{border-bottom:0}
+#settings .nm{font-weight:700;color:var(--ink)}
+#settings .ep{color:var(--dim);font-size:11px;margin-left:auto}
+.btn{font:inherit;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  background:transparent;color:var(--hi);border:1px solid var(--box);
+  padding:5px 10px;cursor:pointer;border-radius:2px}
+.btn:hover{border-color:var(--hi);box-shadow:0 0 8px var(--glow)}
+.btn.danger{color:var(--red);border-color:var(--redbg)}
+.btn.danger:hover{border-color:var(--red);box-shadow:0 0 8px var(--redglow)}
+.btn:disabled{color:var(--faint);border-color:var(--hair);cursor:default;
+  box-shadow:none}
+#settings input[type=password],#settings input[type=text]{font:inherit;
+  background:#000;color:var(--ink);border:1px solid var(--box);padding:6px 8px;
+  border-radius:2px;flex:1;min-width:0}
+#drop{border:1px dashed var(--box);border-radius:3px;padding:14px;text-align:center;
+  color:var(--dim);cursor:pointer;margin:8px 0}
+#drop.over{border-color:var(--hi);color:var(--hi);box-shadow:0 0 12px var(--glow)}
+#settings .note{color:var(--dim);font-size:11px;padding-top:6px;line-height:1.5}
+#settings .err{color:var(--red)}
+#settings .ok{color:var(--hi)}
 .psep{color:var(--faint)}
 #up{font-size:11px;color:var(--dim)}
 /* machine gauges: a ring per watched number, drawn with conic-gradient so the
@@ -253,6 +278,10 @@ footer{margin-top:22px;color:var(--faint);font-size:11px}
       <span class="cap"><b>protection</b></span>
       <span class="capr"><span class="capwarn">data frozen</span></span>
       <div class="kv" id="guards"></div>
+    </div>
+    <div class="box" id="sbox">
+      <span class="cap"><b>tunnels &middot; settings</b></span>
+      <div id="settings"><div class="msg">&mdash;</div></div>
     </div>
   </div>
 </div>
@@ -674,6 +703,183 @@ footer{margin-top:22px;color:var(--faint);font-size:11px}
     box.appendChild(ul);
   }
 
+  // ---- settings: the only part of this page that writes anything ----------
+  //
+  // The token is held in memory for the session and never stored. Putting it in
+  // localStorage would leave a key to a root-owned write endpoint sitting in
+  // the browser of whoever last used the family NAS.
+  var token = null;
+  var settingsState = null;
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.headers = opts.headers || {};
+    if (token) opts.headers["Authorization"] = "Bearer " + token;
+    return fetch(path, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (body) {
+        if (!r.ok) throw new Error(body.error || ("HTTP " + r.status));
+        return body;
+      });
+    });
+  }
+
+  function loadSettings() {
+    return api("/api/tunnels").then(function (s) {
+      settingsState = s;
+      renderSettings();
+    }).catch(function (e) {
+      // An older daemon has no settings API at all. Say which it is rather
+      // than leaving an empty panel.
+      settingsState = { unavailable: e.message };
+      renderSettings();
+    });
+  }
+
+  function say(msg, cls) {
+    var el = $("smsg");
+    if (!el) return;
+    el.className = "note " + (cls || "");
+    el.textContent = msg;
+  }
+
+  function renderSettings() {
+    var box = $("settings");
+    box.textContent = "";
+    var s = settingsState;
+    if (!s) return;
+
+    if (s.unavailable) {
+      box.appendChild(el("div", "msg", "settings unavailable: " + s.unavailable));
+      return;
+    }
+
+    (s.tunnels || []).forEach(function (t) {
+      var row = el("div", "row");
+      row.appendChild(el("span", "nm", t.iface));
+      if (t.endpoint) row.appendChild(el("span", "ep", t.endpoint));
+      if (t.managed && token) {
+        var del = el("button", "btn danger", "remove");
+        del.onclick = function () { removeTunnel(t.name, del); };
+        row.appendChild(del);
+      }
+      box.appendChild(row);
+    });
+    if (!(s.tunnels || []).length) {
+      box.appendChild(el("div", "msg", "no tunnels yet - add your provider's .conf file below"));
+    }
+
+    if (!s.editable) {
+      box.appendChild(el("div", "note",
+        "This gateway lists its tunnels in its config file, so they cannot be " +
+        "changed from here. Set tunnel_dir to manage them from the browser."));
+      return;
+    }
+
+    if (!token) {
+      var form = el("div", "row");
+      var input = document.createElement("input");
+      input.type = "password";
+      input.placeholder = "admin token";
+      input.autocomplete = "off";
+      var go = el("button", "btn", "unlock");
+      var submit = function () {
+        var v = input.value.trim();
+        if (!v) return;
+        token = v;
+        api("/api/unlock", { method: "GET" }).then(function () {
+          say("unlocked", "ok");
+          loadSettings();
+        }).catch(function (e) {
+          token = null;
+          say(e.message, "err");
+        });
+      };
+      go.onclick = submit;
+      input.onkeydown = function (ev) { if (ev.key === "Enter") submit(); };
+      form.appendChild(input);
+      form.appendChild(go);
+      box.appendChild(form);
+      box.appendChild(el("div", "note",
+        "To add or remove tunnels, enter the admin token. It is in the file " +
+        "admin-token next to this gateway's config, readable only by root."));
+      box.appendChild(el("div", "note", "", "smsg"));
+      return;
+    }
+
+    var drop = el("div", "", "drop a .conf file here, or click to choose one");
+    drop.id = "drop";
+    var picker = document.createElement("input");
+    picker.type = "file";
+    picker.accept = ".conf";
+    picker.multiple = true;
+    picker.style.display = "none";
+
+    drop.onclick = function () { picker.click(); };
+    picker.onchange = function () { uploadFiles(picker.files); };
+    drop.ondragover = function (ev) { ev.preventDefault(); drop.classList.add("over"); };
+    drop.ondragleave = function () { drop.classList.remove("over"); };
+    drop.ondrop = function (ev) {
+      ev.preventDefault();
+      drop.classList.remove("over");
+      uploadFiles(ev.dataTransfer.files);
+    };
+
+    box.appendChild(drop);
+    box.appendChild(picker);
+    box.appendChild(el("div", "note",
+      "Download the config from your VPN provider and drop it in as-is. The DNS " +
+      "line is removed and routing is handled here, so nothing else needs editing. " +
+      "Up to " + (s.max || 5) + " tunnels."));
+    box.appendChild(el("div", "note", "", "smsg"));
+  }
+
+  function uploadFiles(files) {
+    if (!files || !files.length) return;
+    var queue = Array.prototype.slice.call(files);
+    say("uploading " + queue.length + " file(s)...");
+
+    var next = function () {
+      if (!queue.length) {
+        loadSettings();
+        return;
+      }
+      var f = queue.shift();
+      var fd = new FormData();
+      fd.append("config", f, f.name);
+      api("/api/tunnels", { method: "POST", body: fd }).then(function (r) {
+        say(r.iface + " added - it comes up within about 15 seconds", "ok");
+        next();
+      }).catch(function (e) {
+        // Named, because with several files it is otherwise impossible to
+        // tell which one was rejected.
+        say(f.name + ": " + e.message, "err");
+        next();
+      });
+    };
+    next();
+  }
+
+  function removeTunnel(name, btn) {
+    btn.disabled = true;
+    api("/api/tunnels/" + encodeURIComponent(name), { method: "DELETE" })
+      .then(function () {
+        say(name + " removed", "ok");
+        loadSettings();
+      })
+      .catch(function (e) {
+        btn.disabled = false;
+        say(e.message, "err");
+      });
+  }
+
+  function el(tag, cls, text, id) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text) e.textContent = text;
+    if (id) e.id = id;
+    return e;
+  }
+
   function markStale(stale) {
     // EVERY data panel, including protection and problems. Those two assert
     // "kill switch armed" and "no problems" from the last good poll; leaving
@@ -757,6 +963,11 @@ footer{margin-top:22px;color:var(--faint);font-size:11px}
 
   poll();
   setInterval(poll, POLL_MS);
+
+  // The tunnel list is not polled: it only changes when someone changes it
+  // here, and re-rendering it every five seconds would reset a half-typed
+  // token and fight the file picker.
+  loadSettings();
 })();
 </script>
 </body>

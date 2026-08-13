@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const Version = "1.7.0"
+const Version = "1.8.0"
 
 const usage = `bondvpn ` + Version + `
 

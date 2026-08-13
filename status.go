@@ -214,6 +214,15 @@ func serveStatus(cfg *Config, get func() *Status) *http.Server {
 	mux := http.NewServeMux()
 	if cfg.Dashboard {
 		mux.HandleFunc("/", dashboardHandler())
+
+		// The settings API only exists alongside the dashboard: it is the
+		// page's write half, and an installation that has turned the interface
+		// off has its own front end and does not want ours accepting uploads.
+		if token, err := adminToken(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: settings page disabled: %v\n", err)
+		} else {
+			registerSettings(mux, cfg, token)
+		}
 	}
 	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

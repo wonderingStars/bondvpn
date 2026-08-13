@@ -17,6 +17,17 @@ import (
 type Config struct {
 	Tunnels []string // paths to WireGuard configs, 1..MaxTunnels
 
+	// TunnelDir is a directory whose *.conf files are tunnels, re-read on every
+	// pass. It is what lets a config be added by dropping in a file or
+	// uploading one from the settings page, with no restart and no editing of
+	// this file - the difference between a gateway an engineer configures and
+	// an appliance somebody uses.
+	TunnelDir string
+
+	// path is where this config was loaded from. The admin token lives beside
+	// it, so it has to be remembered rather than re-derived.
+	path string
+
 	Clients string // the container subnet this gateway serves
 
 	// Per-client routing. Anything inside Clients not named here uses Default.
@@ -110,6 +121,7 @@ func LoadConfig(path string) (*Config, error) {
 	defer f.Close()
 
 	cfg := defaultConfig()
+	cfg.path = path
 	var section string
 	var perr []string
 
@@ -181,6 +193,8 @@ func LoadConfig(path string) (*Config, error) {
 			cfg.LAN = val
 		case "wan_interface":
 			cfg.WANIface = val
+		case "tunnel_dir":
+			cfg.TunnelDir = val
 		case "dns":
 			cfg.DNS = val
 		case "listen":
@@ -263,8 +277,12 @@ func parseDuration(s string) (time.Duration, error) {
 // list in one go.
 func (c *Config) Problems() []string {
 	var p []string
-	if len(c.Tunnels) == 0 {
-		p = append(p, "no tunnels configured - at least one WireGuard config is required")
+	// A tunnel_dir counts as configuring tunnels even when it is empty right
+	// now: an appliance is meant to start with none and have them added from
+	// the settings page, and refusing to start would leave the user with no
+	// page to add them from.
+	if len(c.Tunnels) == 0 && c.TunnelDir == "" {
+		p = append(p, "no tunnels configured - set tunnel_dir, or list at least one WireGuard config")
 	}
 	if len(c.Tunnels) > MaxTunnels {
 		p = append(p, fmt.Sprintf("%d tunnels configured, the maximum is %d",

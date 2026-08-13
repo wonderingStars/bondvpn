@@ -1,5 +1,66 @@
 # Changelog
 
+## 1.8.0
+
+### Add a tunnel from the browser
+
+The dashboard now has a settings panel: drop your provider's `.conf` file on it
+and the tunnel is live within about fifteen seconds. No restart, no editing a
+config file, no reading a setup guide first. This is the difference between a
+gateway an engineer configures and an appliance somebody uses, and it is what
+the NAS build needed to be worth installing.
+
+**`tunnel_dir`** is the new setting behind it: point it at a directory and every
+`*.conf` in it is a tunnel, re-read on every pass. Listing tunnels explicitly
+still works and still takes precedence, so nothing about an existing install
+changes. With no `tunnel_dir`, the settings panel says the tunnels are managed
+in the config file rather than offering a button that cannot work.
+
+**Uploads are normalised on the way in**, which is the whole reason "just drop
+the file in" can be true. A config downloaded from Mullvad, IVPN, Proton or
+AirVPN needs the same two edits every time, and both failures are silent:
+
+- the provider's `DNS =` line is removed, because wg-quick applies it to the
+  **whole machine** - on a NAS that breaks name resolution for every other
+  service on the box. DNS is forced per-client instead.
+- routing is disabled for the interface, without which wg-quick installs its own
+  default route, fights the policy routing, and the tunnel comes up, handshakes,
+  shows traffic counters and carries nothing.
+
+`PersistentKeepalive` is added when absent, so an idle tunnel is not mistaken
+for a dead one. The original file is never modified.
+
+### Security
+
+Writing requires a token. Always, with no config setting to turn it off.
+
+Reading `/status` has always been open, and that is a considered trade: it
+exposes no secrets. Writing is different. An unauthenticated upload endpoint on
+a daemon running as root would let anyone who can reach the port add a tunnel
+pointing at a server they control and take every packet the gateway carries.
+The token is generated on first start and written to `admin-token` beside the
+config, mode 0600.
+
+Also, by construction:
+
+- **Config contents are never served back.** The listing returns names and
+  endpoints only. A settings page that let you view an uploaded file would hand
+  the private key of every tunnel to anyone who guessed the token once.
+- **Uploaded filenames are sanitised, not trusted.** A filename becomes a path
+  under the tunnel directory on a process running as root; `../../etc/cron.d/x`
+  is reduced to its base name. `DELETE` will only remove a file the daemon
+  manages.
+- Uploads are capped at 2 MB, validated as WireGuard configs before anything
+  touches the disk, and written to a temporary file and renamed, so the run loop
+  can never find a half-written config and try to bring it up.
+
+### Also
+
+Names are checked against the 15-character limit Linux puts on interface names,
+with the limit in the message. Mullvad's own download is called something like
+`mullvad-gb-lon-wg-001.conf`, which is over it - previously that config looked
+perfectly good and silently failed to come up.
+
 ## 1.7.0
 
 ### It runs on a NAS

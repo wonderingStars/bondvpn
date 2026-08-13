@@ -7,3 +7,6 @@ config.yml
 # wrangler's local cache: account metadata and build artefacts, not source
 .wrangler/
 counter/node_modules/
+
+# Generated per-installation secret for the settings page. Never committed.
+admin-token

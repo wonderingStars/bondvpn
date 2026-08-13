@@ -83,7 +83,7 @@ func (c *WGConf) Problems(name string) (fatal []string, warn []string) {
 
 // checkTunnelConfigs reads every configured tunnel and reports what is wrong.
 func checkTunnelConfigs(cfg *Config) (fatal []string, warn []string) {
-	for _, path := range cfg.Tunnels {
+	for _, path := range cfg.tunnelPaths() {
 		f, err := os.Open(path)
 		if err != nil {
 			fatal = append(fatal, fmt.Sprintf("cannot read %s: %v", path, err))

@@ -11,6 +11,22 @@ tunnels:
   - /etc/wireguard/wg1.conf
   - /etc/wireguard/wg2.conf
 
+# Instead of - or as well as - listing them above, point at a DIRECTORY. Every
+# *.conf in it is a tunnel, re-read on every pass, so adding one means dropping
+# a file in: no restart, no editing this file.
+#
+# It is also what the dashboard's settings panel writes to. With tunnel_dir set,
+# tunnels can be added and removed from the browser, and an uploaded config is
+# normalised on the way in - the provider's DNS line removed, routing disabled
+# for the interface, keepalive added - so a file downloaded from Mullvad, IVPN,
+# Proton or AirVPN works exactly as it arrives.
+#
+# Writing always requires a token, whatever `listen` is set to. It is generated
+# on first start and written to "admin-token" beside this file, mode 0600.
+# Reading the status page still needs nothing.
+#
+# tunnel_dir: /etc/wireguard/bondvpn
+
 # The subnet your download containers sit on. This MUST NOT contain this
 # machine's own address - the gateway refuses to start if it does, because the
 # host's own replies would be routed into a tunnel and the box would go silent.

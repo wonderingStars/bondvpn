@@ -65,7 +65,7 @@ func cmdCheck(path string, out io.Writer) int {
 
 	// ---- what the tunnels need ---------------------------------------------
 	section("wireguard configs")
-	if len(cfg.Tunnels) == 0 {
+	if len(cfg.tunnelPaths()) == 0 {
 		fail("none configured")
 	} else {
 		fatal, wrn := checkTunnelConfigs(cfg)
@@ -76,7 +76,7 @@ func cmdCheck(path string, out io.Writer) int {
 			warn("%s", w)
 		}
 		if len(fatal) == 0 {
-			pass("%d tunnel config(s) readable, with Table = off and no DNS line", len(cfg.Tunnels))
+			pass("%d tunnel config(s) readable, with Table = off and no DNS line", len(cfg.tunnelPaths()))
 		}
 	}
 

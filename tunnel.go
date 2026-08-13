@@ -64,8 +64,8 @@ func readTunnels(cfg *Config) []*Tunnel {
 	transfer := readTransfer()
 	endpoints := readEndpoints()
 
-	out := make([]*Tunnel, 0, len(cfg.Tunnels))
-	for _, path := range cfg.Tunnels {
+	out := make([]*Tunnel, 0, MaxTunnels)
+	for _, path := range cfg.tunnelPaths() {
 		name := ifaceNameFor(path)
 		t := &Tunnel{Name: name, ConfigPath: path, HandshakeAge: -1}
 
