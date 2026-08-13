@@ -44,14 +44,32 @@ const tokenFileName = "admin-token"
 // admin-token file into the source tree and very nearly committed it. A secret
 // whose location depends on the working directory is a secret that ends up
 // somewhere nobody is watching.
+// minTokenLen is the floor for a token someone chooses themselves. Generated
+// ones are 64 hex characters; this only bounds how bad a hand-picked one may be.
+const minTokenLen = 16
+
+// tokenEnvVar lets the token be set at deploy time. This is the container-native
+// answer to "how does the owner get the token on a NAS": it goes in the compose
+// file, and there is nothing to discover afterwards.
+const tokenEnvVar = "BONDVPN_ADMIN_TOKEN"
+
 func adminToken(cfg *Config) (string, error) {
+	// Chosen at deploy time wins, and nothing is written to disk.
+	if t := strings.TrimSpace(os.Getenv(tokenEnvVar)); t != "" {
+		if len(t) < minTokenLen {
+			return "", fmt.Errorf("%s is %d characters; use at least %d, or unset it and let one be generated",
+				tokenEnvVar, len(t), minTokenLen)
+		}
+		return t, nil
+	}
+
 	if strings.TrimSpace(cfg.path) == "" {
 		return "", fmt.Errorf("no config path is known, so there is nowhere safe to keep the admin token")
 	}
 	path := filepath.Join(filepath.Dir(cfg.path), tokenFileName)
 
 	if b, err := os.ReadFile(path); err == nil {
-		if t := strings.TrimSpace(string(b)); len(t) >= 32 {
+		if t := strings.TrimSpace(string(b)); len(t) >= minTokenLen {
 			return t, nil
 		}
 		// Too short to be one of ours - a truncated write or a hand-edited
@@ -66,7 +84,37 @@ func adminToken(cfg *Config) (string, error) {
 	if err := os.WriteFile(path, []byte(token+"\n"), 0o600); err != nil {
 		return "", fmt.Errorf("could not write %s: %v", path, err)
 	}
+
+	// Printed IN FULL, once, at the moment it is created.
+	//
+	// The file is mode 0600 and owned by root, which is right for a secret and
+	// useless to the owner of a NAS: they have no root shell, so a file they
+	// cannot read is the same as no token at all. The startup log is the one
+	// place every deployment can see - `docker logs`, Container Manager's log
+	// pane, journalctl - so this is where a first install finds it.
+	//
+	// Only on creation. Printing it on every start would scatter the token
+	// through logs that get pasted into forums and support threads.
+	logf("")
+	logf("  SETTINGS TOKEN (first run, shown once)")
+	logf("  %s", token)
+	logf("  Enter this on the dashboard to add tunnels. Kept in %s", path)
+	logf("  Run `bondvpn token` to print it again, or delete that file for a new one.")
+	logf("")
 	return token, nil
+}
+
+// cmdToken prints the token for whoever can already read it. This exists so the
+// answer to "where do I find it" is one command rather than a path, a
+// permission problem and a support thread.
+func cmdToken(cfg *Config) int {
+	token, err := adminToken(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+	fmt.Println(token)
+	return 0
 }
 
 // authorised does a constant-time comparison. String equality on a secret leaks

@@ -367,6 +367,39 @@ func TestUploadStopsAtTheMaximum(t *testing.T) {
 	}
 }
 
+// The owner of a NAS has no root shell, so a token they can only get by
+// reading a root-owned file is no token at all. Setting it at deploy time -
+// in a compose file - removes the discovery problem entirely.
+func TestTokenCanBeSetAtDeployTime(t *testing.T) {
+	cfg, _ := settingsTestConfig(t)
+	t.Setenv(tokenEnvVar, "a-token-chosen-in-the-compose-file")
+
+	got, err := adminToken(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "a-token-chosen-in-the-compose-file" {
+		t.Errorf("got %q, want the value from %s", got, tokenEnvVar)
+	}
+	// Nothing should be written when the operator supplied one.
+	if _, err := os.Stat(filepath.Join(filepath.Dir(cfg.path), tokenFileName)); err == nil {
+		t.Error("a token file was written even though one was supplied")
+	}
+}
+
+// A token short enough to guess is worse than useless, because the page implies
+// the write endpoint is protected.
+func TestSuppliedTokenMustNotBeTrivial(t *testing.T) {
+	cfg, _ := settingsTestConfig(t)
+	t.Setenv(tokenEnvVar, "hunter2")
+
+	if _, err := adminToken(cfg); err == nil {
+		t.Error("a 7-character token was accepted")
+	} else if !strings.Contains(err.Error(), "16") {
+		t.Errorf("the error should state the minimum, got: %v", err)
+	}
+}
+
 // The token is the only thing between the network and a root-owned write
 // endpoint, so it must be generated, persistent, and not world-readable.
 func TestAdminTokenIsStrongAndPrivate(t *testing.T) {

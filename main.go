@@ -24,6 +24,7 @@ const usage = `bondvpn ` + Version + `
   bondvpn status       print the current state as JSON
   bondvpn leak-test    drop every tunnel and prove nothing escapes (disruptive)
   bondvpn stop         take the tunnels down and REMOVE the kill switch
+  bondvpn token        print the token the dashboard's settings panel asks for
   bondvpn version
 
 Options:
@@ -83,6 +84,8 @@ func realMain() int {
 		return cmdLeakTest(cfg)
 	case "stop":
 		return cmdStop(cfg)
+	case "token":
+		return cmdToken(cfg)
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		return 2

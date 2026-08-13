@@ -30,6 +30,21 @@ AirVPN needs the same two edits every time, and both failures are silent:
 `PersistentKeepalive` is added when absent, so an idle tunnel is not mistaken
 for a dead one. The original file is never modified.
 
+### Getting the token on a first install
+
+A secret in a root-owned file is correct for a secret and useless to the owner
+of a NAS, who has no root shell. Three ways in, so no install is stuck:
+
+- **It is printed in the startup log the first time it is created** - visible in
+  `docker logs`, Container Manager's log pane, or `journalctl -u bondvpn`. Only
+  on creation, never again, so it does not end up in a log someone pastes into a
+  forum.
+- **`bondvpn token`** prints it on demand.
+- **`BONDVPN_ADMIN_TOKEN`** sets it at deploy time - put it in the compose file
+  and there is nothing to discover at all. A value under 16 characters is
+  refused rather than quietly accepted, and nothing is written to disk when one
+  is supplied.
+
 ### Security
 
 Writing requires a token. Always, with no config setting to turn it off.
