@@ -16,6 +16,31 @@ WGDIR=${WGDIR:-/etc/wireguard}
 
 log() { echo "bondvpn-entrypoint: $*"; }
 
+# ---- pick the iptables backend the RUNNING KERNEL supports -----------------
+#
+# Alpine's `iptables` is the nf_tables build. On a kernel without nf_tables - a
+# Synology NAS runs 4.4, which predates it by years - every call fails with
+# "Could not fetch rule set generation id: Invalid argument", so the container
+# starts, passes its own checks, and then cannot arm the kill switch. The legacy
+# binaries work there and are installed alongside.
+#
+# Decided by trying it rather than by reading a version or a hostname: the image
+# cannot know which kernel it will be run on.
+if ! iptables -L -n >/dev/null 2>&1; then
+    if command -v iptables-legacy >/dev/null 2>&1 && iptables-legacy -L -n >/dev/null 2>&1; then
+        log "this kernel has no nf_tables - using the legacy iptables backend"
+        mkdir -p /usr/local/sbin
+        ln -sf "$(command -v iptables-legacy)" /usr/local/sbin/iptables
+        ln -sf "$(command -v ip6tables-legacy)" /usr/local/sbin/ip6tables
+        ln -sf "$(command -v iptables-legacy-restore)" /usr/local/sbin/iptables-restore 2>/dev/null || true
+        ln -sf "$(command -v iptables-legacy-save)" /usr/local/sbin/iptables-save 2>/dev/null || true
+        PATH=/usr/local/sbin:$PATH
+        export PATH
+    else
+        log "warning: neither iptables backend works here - the kill switch will not arm"
+    fi
+fi
+
 if [ ! -f "$CFG" ]; then
     # ---- find what they mounted ------------------------------------------
     # Sorted, so wg0 is the first tunnel every time. Unsorted, the pin order

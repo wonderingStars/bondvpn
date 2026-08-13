@@ -191,15 +191,17 @@ func registerSettings(mux *http.ServeMux, cfg *Config, token string) {
 func listTunnels(cfg *Config) map[string]any {
 	paths := cfg.tunnelPaths()
 	out := make([]tunnelInfo, 0, len(paths))
+	// Keyed by base name, because tunnelPaths returns the normalised working
+	// copies while what the user can remove is their own file.
 	managed := map[string]bool{}
-	for _, p := range cfg.dirTunnels() {
-		managed[p] = true
+	for _, p := range cfg.dirSources() {
+		managed[filepath.Base(p)] = true
 	}
 	for _, p := range paths {
 		info := tunnelInfo{
 			Name:    filepath.Base(p),
 			Iface:   ifaceNameFor(p),
-			Managed: managed[p],
+			Managed: managed[filepath.Base(p)],
 		}
 		// Endpoint only - which server a tunnel talks to is useful and not
 		// secret. The file is never returned, and no key is ever read.
@@ -243,10 +245,9 @@ func uploadTunnel(w http.ResponseWriter, r *http.Request, cfg *Config) {
 	// The cap is Mullvad's per-account device limit and the daemon's own
 	// ceiling; going over it silently would leave a config on disk that never
 	// becomes a tunnel.
-	existing := cfg.dirTunnels()
 	dest := filepath.Join(cfg.TunnelDir, name)
 	replacing := false
-	for _, p := range existing {
+	for _, p := range cfg.dirSources() {
 		if p == dest {
 			replacing = true
 		}
@@ -316,7 +317,7 @@ func deleteTunnel(w http.ResponseWriter, r *http.Request, cfg *Config) {
 	// directory means a crafted request cannot turn DELETE into "remove any
 	// file on the box as root".
 	found := false
-	for _, p := range cfg.dirTunnels() {
+	for _, p := range cfg.dirSources() {
 		if p == dest {
 			found = true
 		}
@@ -329,6 +330,9 @@ func deleteTunnel(w http.ResponseWriter, r *http.Request, cfg *Config) {
 		writeErr(w, http.StatusInternalServerError, "could not remove it: "+err.Error())
 		return
 	}
+	// And the normalised copy, or the tunnel is rebuilt from it on the next
+	// pass and the removal appears not to have worked.
+	_ = os.Remove(filepath.Join(cfg.TunnelDir, workingDirName, name))
 	logf("settings: removed tunnel %s", name)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "removed": name})
 }

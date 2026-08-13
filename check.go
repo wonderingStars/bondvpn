@@ -66,7 +66,17 @@ func cmdCheck(path string, out io.Writer) int {
 	// ---- what the tunnels need ---------------------------------------------
 	section("wireguard configs")
 	if len(cfg.tunnelPaths()) == 0 {
-		fail("none configured")
+		// An appliance is MEANT to start with none: it is installed, it comes
+		// up, and tunnels are added afterwards from the settings page. Failing
+		// here would refuse to start the very thing the user needs in order to
+		// add them - a first install that cannot boot until it is already
+		// configured. With no tunnel_dir there is nowhere to add them from, so
+		// that stays fatal.
+		if cfg.TunnelDir != "" {
+			warn("no tunnels yet - add one from the dashboard, or drop a .conf file in %s", cfg.TunnelDir)
+		} else {
+			fail("none configured")
+		}
 	} else {
 		fatal, wrn := checkTunnelConfigs(cfg)
 		for _, f := range fatal {

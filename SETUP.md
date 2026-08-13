@@ -36,8 +36,12 @@ All three are static, so the distribution's age does not matter.
 
 ### Running it on a Synology NAS
 
-It works, with one real limitation. All of the below was measured on a DS1019+
-running DSM 7.3 (kernel 4.4.302), not inferred from documentation.
+**Step-by-step instructions are in the [README](README.md#synology-nas).** Use
+Container Manager: a container can be given `NET_ADMIN` and `/dev/net/tun`,
+which is what this needs, and DSM will not grant either to an installed package.
+
+What follows is why it behaves the way it does there. All of it was measured on
+a DS1019+ running DSM 7.3 (kernel 4.4.302), not inferred from documentation.
 
 - **You get WireGuard without a kernel module.** DSM ships none, and no `wg` or
   `wg-quick` either. BondVPN detects that and runs `wireguard-go` over
@@ -54,8 +58,15 @@ running DSM 7.3 (kernel 4.4.302), not inferred from documentation.
   binary copied there will `chmod +x` happily and then refuse to run.
 - **The firewall adapts.** DSM's iptables has no `--reject-with` and its
   ip6tables cannot load REJECT at all; BondVPN falls back to DROP rather than
-  refusing to start. DSM manages its own firewall, so expect to keep an eye on
-  it.
+  refusing to start. Inside the container there is a second version of this
+  problem: Alpine's `iptables` is the nf_tables build, and this kernel has no
+  nf_tables, so the entrypoint switches to the legacy binaries after testing
+  which one works. DSM manages its own firewall, so expect to keep an eye on it.
+- **An installed DSM package cannot do any of this.** Measured, not assumed:
+  DSM 7.3 refuses `run-as: root`, refuses per-script elevation, refuses
+  capability grants, and strips setuid bits and file capabilities out of the
+  package payload on install. Only a Synology-signed package may run privileged.
+  That is why the NAS route is a container.
 - **`bondvpn check` tells you the truth in one command.** It reports which
   WireGuard backend you will get and changes nothing. Run it first.
 

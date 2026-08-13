@@ -131,8 +131,17 @@ func buildStatus(cfg *Config, tunnels []*Tunnel, plan *Plan) *Status {
 	}
 
 	if len(plan.Bond) == 0 {
-		s.Problems = append(s.Problems,
-			"no live tunnels - all client traffic is blocked (the kill switch is holding)")
+		// A fresh install with nothing added yet is not a fault, and calling it
+		// one greets every new user with a red problem list on a gateway that
+		// is behaving exactly as designed. It is still blocking traffic, which
+		// is why it is said at all.
+		if len(cfg.tunnelPaths()) == 0 && cfg.TunnelDir != "" {
+			s.Warnings = append(s.Warnings,
+				"no tunnels yet - add one from the settings panel below. Until then no client traffic can leave, which is the kill switch doing its job.")
+		} else {
+			s.Problems = append(s.Problems,
+				"no live tunnels - all client traffic is blocked (the kill switch is holding)")
+		}
 	}
 	if !s.KillSwitch.V4 {
 		s.Problems = append(s.Problems,
