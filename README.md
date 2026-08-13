@@ -386,19 +386,23 @@ What happens if it fails:
 
 ## Licence and support
 
-Proprietary; see [LICENSE](LICENSE). **Free for personal, household and
-educational use** on any number of machines you own or administer, and free to
-evaluate inside an organisation for 30 days. Beyond that, use in or for a
-business — including running a service other people rely on — needs a paid
-licence: open an issue and we will sort it out.
+**BondVPN is free software under the [GNU AGPLv3](LICENSE).** The source is in
+this repository: run it, read it, change it, share it, at home or at work, at no
+charge.
 
-If source is ever shared with you, improvements come back: you offer them to me
-and license me to fold them into BondVPN, while keeping your own copyright in
-what you wrote.
+The one obligation worth knowing: if you **modify** it and let other people use
+your modified version over a network, AGPL section 13 says those users must be
+able to get your source. Running it unmodified, or modifying it for yourself,
+asks nothing of you.
 
-The source is not distributed, so this repository holds the documentation and
-the releases only. Releases published before this licence allowed commercial
-use at no charge, and copies obtained then keep those terms.
+A [commercial licence](COMMERCIAL.md) exists for anyone who needs to ship it
+inside a product or run a modified hosted service without that obligation.
+
+Patches welcome — see [CONTRIBUTING.md](CONTRIBUTING.md), which explains the one
+licensing condition that keeps dual licensing possible.
+
+Earlier releases were published under proprietary terms; copies obtained then
+keep them. Everything from this point is AGPL.
 
 Bug reports and feature requests are welcome in
 [Issues](https://github.com/wonderingStars/bondvpn/issues). Include the output

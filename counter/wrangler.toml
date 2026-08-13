@@ -1,0 +1,11 @@
+name = "bondvpn-licence"
+main = "worker.js"
+compatibility_date = "2026-08-11"
+
+# No KV, no D1, no Durable Objects, no storage of any kind. The count comes from
+# Cloudflare's request metering, which means there is nothing here that could
+# hold a record of who checked in even if somebody asked for one.
+#
+# Free tier is 100,000 requests a day. At one check per installation per hour
+# that is roughly 4,000 installations before it costs anything - and if you ever
+# reach that, $5 a month is the least of your problems.

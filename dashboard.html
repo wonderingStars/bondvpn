@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:,">
+<title>bondvpn</title>
+<!--
+  The whole interface, in one file, served by the binary from memory.
+
+  SELF-CONTAINED ON PURPOSE. Not one byte is fetched from anywhere but this
+  gateway: no CDN, no web font, no analytics. A gateway whose kill switch is
+  doing its job has no route out, so any external reference would render as a
+  broken page exactly when someone is looking at it to find out what broke.
+  There is a test that fails if an absolute URL ever appears in here.
+
+  DARK ONLY. No prefers-color-scheme branch. The palette is deliberate, not a
+  default, and a light variant would be a different product.
+
+  It shows what /status carries and nothing else. If a number is not in that
+  document it is not on this page - inventing a panel the API cannot fill is
+  how a dashboard starts lying.
+-->
+<style>
+:root{
+  --bg:#020806; --ink:#c6f2d2; --hi:#46ff7e; --dim:#3f8f60; --faint:#1a4630;
+  --box:#124a2c; --hair:#082818;
+  --amber:#ffc35c; --red:#ff5964; --cyan:#7dffd4;
+  --t0:#46ff7e; --t1:#5ad7e0; --t2:#c792ff; --t3:#ffc35c; --t4:#ff8ad4;
+  --glow:rgba(70,255,126,.5); --redglow:rgba(255,89,100,.5); --amberglow:rgba(255,195,92,.45);
+  --redbg:rgba(255,89,100,.1); --amberbg:rgba(255,195,92,.12);
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Cascadia Code",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI","Helvetica Neue",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+html,body{margin:0}
+body{color:var(--ink);font:12.5px/1.55 var(--mono);font-variant-numeric:tabular-nums;
+  padding:20px 24px 28px;max-width:1500px;margin-inline:auto}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;background:
+  radial-gradient(1100px 420px at 50% -90px,rgba(70,255,126,.11),transparent 70%),
+  radial-gradient(900px 520px at 88% 112%,rgba(70,255,126,.06),transparent 70%),
+  repeating-linear-gradient(90deg,rgba(70,255,126,.03) 0 1px,transparent 1px 130px),
+  repeating-linear-gradient(0deg,rgba(70,255,126,.03) 0 1px,transparent 1px 130px)}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(150,255,190,.015) 0 1px,transparent 1px 3px)}
+::selection{background:var(--hi);color:var(--bg)}
+.dim{color:var(--dim)}.faint{color:var(--faint)}.hi{color:var(--hi)}
+.amber{color:var(--amber)}.red{color:var(--red)}.cyan{color:var(--cyan)}
+
+header{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;margin-bottom:10px}
+.prompt{font:600 10.5px var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--dim)}
+.prompt b{color:var(--hi);font-weight:700;text-shadow:0 0 12px var(--glow)}
+.prompt::after{content:"\25AA";margin-left:6px;color:var(--hi);opacity:.6;
+  animation:blink 1.3s steps(2,jump-none) infinite}
+.hmeta{margin-left:auto;display:flex;gap:14px;align-items:baseline;white-space:nowrap}
+#pill{font:600 9.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;
+  padding:3px 9px;border:1px solid var(--hair);color:var(--dim)}
+#pill.warn{color:var(--amber);background:var(--amberbg);border-color:var(--amber)}
+#pill.bad{color:var(--red);background:var(--redbg);border-color:var(--red)}
+
+#hero{display:flex;gap:26px;align-items:center;flex-wrap:wrap;padding:10px 14px;margin:0 -14px;
+  border:1px solid transparent;animation:boot .5s ease both}
+#hero.warn{border-color:var(--amber);background:var(--amberbg)}
+#hero.bad{border-color:var(--red);background:var(--redbg)}
+.reactor{width:58px;height:58px;flex:none;position:relative;--lc:var(--dim)}
+.reactor[data-lvl="ok"]{--lc:var(--hi)}
+.reactor[data-lvl="warn"]{--lc:var(--amber)}
+.reactor[data-lvl="bad"]{--lc:var(--red)}
+.reactor i{position:absolute;inset:0;border-radius:50%;border:1.5px dashed var(--lc);opacity:.85;
+  animation:rspin 26s linear infinite}
+.reactor::before{content:"";position:absolute;inset:6px;border-radius:50%;
+  border:1px dotted color-mix(in srgb,var(--lc) 65%,transparent);animation:rspin 15s linear infinite reverse}
+.reactor b{position:absolute;inset:13px;border-radius:50%;border:1px solid var(--lc);
+  background:radial-gradient(circle,var(--lc) 0 16%,transparent 62%);
+  box-shadow:0 0 18px var(--lc),inset 0 0 10px color-mix(in srgb,var(--lc) 45%,transparent);
+  animation:breathe 4.5s ease-in-out infinite}
+.word{font:200 40px/1.1 var(--sans);letter-spacing:.3em;text-transform:uppercase;white-space:nowrap}
+.word.ok{color:var(--hi);text-shadow:0 0 16px var(--glow),0 0 44px var(--glow)}
+.word.warn{color:var(--amber);text-shadow:0 0 16px var(--amberglow),0 0 44px var(--amberglow)}
+.word.bad{color:var(--red);text-shadow:0 0 16px var(--redglow),0 0 44px var(--redglow)}
+#wsub{font-size:11.5px;color:var(--dim);max-width:520px}
+#wsub.warn{color:var(--amber)}#wsub.bad{color:var(--red)}
+.checks{display:flex;gap:8px 10px;flex-wrap:wrap;flex:1;min-width:270px}
+.chk{font:600 9.5px var(--sans);letter-spacing:.13em;text-transform:uppercase;color:var(--dim);
+  border:1px solid var(--hair);background:rgba(70,255,126,.045);padding:5px 10px;white-space:nowrap;
+  clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px)}
+.chk b{font-family:var(--mono);font-weight:700;letter-spacing:0}
+.chk[data-s="ok"] b{color:var(--hi);text-shadow:0 0 8px var(--glow)}
+.chk[data-s="warn"] b{color:var(--amber)}
+.chk[data-s="bad"] b{color:var(--red);text-shadow:0 0 8px var(--redglow)}
+.chk[data-s="off"] b{color:var(--faint)}
+.rates{margin-left:auto;text-align:right}
+.rates .r{font-size:20px;white-space:nowrap}
+.rates .r b{color:var(--hi);font-weight:700;display:inline-block;min-width:4.5ch;text-align:right;
+  text-shadow:0 0 12px var(--glow)}
+.rates .r .u{color:var(--dim);font-size:13px;display:inline-block;min-width:5ch;text-align:left;
+  margin-left:3px}
+.hr{height:1px;margin:14px 0 18px;
+  background:linear-gradient(90deg,transparent,rgba(70,255,126,.55) 10%,rgba(70,255,126,.55) 90%,transparent)}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px 18px;align-items:start}
+.col{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;min-width:0}
+.box{border:1px solid var(--box);padding:14px 16px 13px;position:relative;animation:boot .55s ease both;
+  background:linear-gradient(180deg,rgba(70,255,126,.06),rgba(70,255,126,.015) 70px),rgba(2,8,6,.72);
+  box-shadow:0 18px 34px -14px rgba(0,0,0,.75),0 6px 22px -8px rgba(70,255,126,.12)}
+.box::after{content:"";position:absolute;inset:-1px;pointer-events:none;opacity:.7;background:
+  linear-gradient(var(--hi),var(--hi)) 0 0/16px 2px no-repeat,
+  linear-gradient(var(--hi),var(--hi)) 0 0/2px 16px no-repeat,
+  linear-gradient(var(--hi),var(--hi)) 100% 100%/16px 2px no-repeat,
+  linear-gradient(var(--hi),var(--hi)) 100% 100%/2px 16px no-repeat}
+.cap{position:absolute;top:-8px;left:12px;background:var(--bg);padding:0 8px;z-index:1;
+  font:600 9.5px/16px var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.cap::before{content:"\25C8 ";color:var(--hi)}
+.cap b{color:var(--hi);font-weight:700;text-shadow:0 0 10px var(--glow)}
+.capr{position:absolute;top:-8px;right:12px;background:var(--bg);padding:0 6px;z-index:1;
+  font:600 9.5px/16px var(--sans);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+.capwarn{display:none;color:var(--amber);background:var(--amberbg);padding:0 4px;font-weight:700}
+.stale .capwarn{display:inline}
+.box.stale>*:not(.cap):not(.capr){opacity:.45}
+#hero.stale .checks,#hero.stale .rates,#hero.stale .word,#hero.stale #wsub,#hero.stale .reactor{opacity:.45}
+.msg{color:var(--dim);padding:8px 0}
+.msg.red{color:var(--red)}
+
+.trow{display:grid;grid-template-columns:56px minmax(0,1fr) 190px;gap:14px;align-items:center;padding:9px 0}
+.trow+.trow{border-top:1px solid var(--hair)}
+.tif{font-weight:700;text-shadow:0 0 10px color-mix(in srgb,currentColor 55%,transparent)}
+.tbadge{font-size:10.5px;padding:0 3px;font-weight:700}
+.tbadge.bad{color:var(--red);background:var(--redbg)}
+.tbadge.warn{color:var(--amber);background:var(--amberbg)}
+.tbar{height:9px;background:rgba(70,255,126,.06);border:1px solid rgba(70,255,126,.14);
+  position:relative;overflow:hidden}
+.tbar i{position:absolute;inset:0 auto 0 0;width:0;transition:width .6s ease;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--tc,var(--hi)) 20%,transparent),var(--tc,var(--hi)));
+  box-shadow:0 0 10px color-mix(in srgb,var(--tc,var(--hi)) 60%,transparent)}
+.tbar i::after{content:"";position:absolute;inset:0;animation:flow 1.4s linear infinite;
+  background:repeating-linear-gradient(90deg,rgba(223,244,255,.15) 0 5px,transparent 5px 14px)}
+.tmeta{color:var(--faint);font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tnum{text-align:right;white-space:nowrap;font-size:12px}
+.tnum b{display:inline-block;min-width:7ch;font-weight:700}
+.tnum .sub{color:var(--faint)}
+.tdown .tbar,.tdown .tmeta{opacity:.4}
+
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font:600 9.5px var(--sans);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--dim);font-weight:600;padding:4px 8px 6px 0;border-bottom:1px solid var(--hair)}
+td{padding:6px 8px 6px 0;border-bottom:1px solid var(--hair);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.mode{font-size:10.5px;font-weight:700;padding:0 4px}
+.mode.pin{color:var(--cyan)}
+.mode.bond{color:var(--hi)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;padding:2px 0}
+.kv>div{padding:5px 0;border-bottom:1px solid var(--hair)}
+.kv>div:nth-last-child(-n+2){border-bottom:0}
+.kv .v{text-align:right;font-weight:700}
+.plist{margin:0;padding:0;list-style:none}
+.plist li{padding:7px 0 7px 16px;position:relative;color:var(--amber);border-bottom:1px solid var(--hair);
+  white-space:normal}
+.plist li:last-child{border-bottom:0}
+.plist li::before{content:"\25B8";position:absolute;left:0;color:var(--amber)}
+.plist li.bad{color:var(--red)}
+.plist li.bad::before{color:var(--red)}
+.psep{color:var(--faint)}
+#up{font-size:11px;color:var(--dim)}
+/* machine gauges: a ring per watched number, drawn with conic-gradient so the
+   page needs no SVG, no canvas and no library. */
+.gauges{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-around;padding-top:6px}
+.g{text-align:center;min-width:78px;flex:1}
+.g .lbl{font:600 9px var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
+  margin-bottom:6px}
+.g .ring{width:62px;height:62px;margin:0 auto;border-radius:50%;position:relative;
+  background:conic-gradient(var(--gc,var(--hi)) calc(var(--pct,0)*1%),rgba(70,255,126,.08) 0);
+  filter:drop-shadow(0 0 6px color-mix(in srgb,var(--gc,var(--hi)) 45%,transparent))}
+.g .ring::after{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--bg)}
+.g .ring span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  z-index:1;font-weight:700;font-size:13px;color:var(--gc,var(--hi))}
+.g .sub{color:var(--faint);font-size:10px;margin-top:5px;line-height:1.35}
+footer{margin-top:22px;color:var(--faint);font-size:11px}
+
+@keyframes rspin{to{transform:rotate(360deg)}}
+@keyframes breathe{50%{box-shadow:0 0 28px var(--lc),inset 0 0 14px color-mix(in srgb,var(--lc) 60%,transparent)}}
+@keyframes boot{from{opacity:0;transform:translateY(8px)}}
+@keyframes blink{50%{opacity:0}}
+@keyframes flow{to{background-position:14px 0}}
+@media (prefers-reduced-motion:reduce){
+  .reactor i,.reactor::before,.reactor b,.tbar i::after,#hero,.box,.prompt::after{animation:none}
+}
+@media (max-width:900px){
+  .grid{grid-template-columns:minmax(0,1fr)}
+  .word{font-size:30px}
+  body{padding:14px 14px 22px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="prompt"><b id="host">bondvpn</b> <span class="psep">//</span>
+    <span id="hdr" class="dim">bonded uplink telemetry</span></span>
+  <span id="up" class="dim"></span>
+  <span class="hmeta">
+    <span id="age" class="faint"></span>
+    <span id="pill">checking</span>
+  </span>
+</header>
+
+<div id="hero">
+  <div class="reactor" id="reactor" data-lvl=""><i></i><b></b></div>
+  <div>
+    <div class="word dim" id="word">&hellip;</div>
+    <div id="wsub">waiting for the first status document</div>
+  </div>
+  <div class="checks" id="checks"></div>
+  <div class="rates">
+    <div class="r">&darr; <b id="dl">0.0</b><span class="u" id="dlu">B/s</span></div>
+    <div class="r">&uarr; <b id="ul">0.0</b><span class="u" id="ulu">B/s</span></div>
+  </div>
+</div>
+
+<div class="hr"></div>
+
+<div class="grid">
+  <div class="col">
+    <div class="box" id="tbox">
+      <span class="cap"><b>tunnels</b></span>
+      <span class="capr"><span class="capwarn">data frozen</span></span>
+      <div id="tunnels"><div class="msg">waiting for /status&hellip;</div></div>
+    </div>
+    <div class="box" id="mbox">
+      <span class="cap"><b>machine</b></span>
+      <span class="capr"><span class="capwarn">data frozen</span></span>
+      <div class="gauges" id="machine"><div class="msg">waiting for /status&hellip;</div></div>
+    </div>
+    <div class="box" id="pbox">
+      <span class="cap"><b>problems</b></span>
+      <span class="capr"><span class="capwarn">data frozen</span></span>
+      <div id="problems"><div class="msg">&mdash;</div></div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="box" id="cbox">
+      <span class="cap"><b>clients</b></span>
+      <span class="capr"><span class="capwarn">data frozen</span></span>
+      <div id="clients"><div class="msg">waiting for /status&hellip;</div></div>
+    </div>
+    <div class="box" id="gbox">
+      <span class="cap"><b>protection</b></span>
+      <span class="capr"><span class="capwarn">data frozen</span></span>
+      <div class="kv" id="guards"></div>
+    </div>
+  </div>
+</div>
+
+<footer>served by bondvpn from memory &middot; same origin only &middot; polls /status every 5 s</footer>
+<noscript><div class="msg red">javascript is off &mdash; this page is a live poller and cannot render.</div></noscript>
+
+<script>
+"use strict";
+(function () {
+  var TCOL = ["--t0", "--t1", "--t2", "--t3", "--t4"];
+  var POLL_MS = 5000;
+  // If the document's own `generated` timestamp has not advanced in this many
+  // seconds of REAL elapsed time, the feed is stale and the page says so. This
+  // is measured as elapsed-since-last-advance on the client clock, never as an
+  // absolute generated-vs-now difference, so a viewer whose clock disagrees
+  // with the gateway's does not see a healthy feed wrongly marked frozen.
+  var STALE_S = 45;
+  // A single poll may not hang the whole page: without a deadline a blackholed
+  // gateway (unplugged, panicked, route lost) leaves the fetch pending for the
+  // browser's multi-minute TCP timeout while the page shows stale-but-green.
+  var FETCH_TIMEOUT_MS = 8000;
+
+  var rateBase = null;  // {gen, tunnels} - the sample rates are measured against
+  var lastRate = null;  // {gen, dl, ul, per} - cached so a repeat poll keeps it
+  var lastGen = null;   // the last `generated` value seen advance
+  var lastGenAt = 0;    // client Date.now() when it last advanced
+  var inFlight = false;  // guard: never stack polls
+
+  function $(id) { return document.getElementById(id); }
+
+  function bytes(n) {
+    var u = ["B", "KB", "MB", "GB", "TB", "PB"], i = 0;
+    n = Number(n) || 0;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return [n < 10 && i > 0 ? n.toFixed(1) : Math.round(n).toString(), u[i]];
+  }
+  function rate(n) {
+    var p = bytes(n);
+    return [p[0], p[1] + "/s"];
+  }
+  function ago(sec) {
+    if (sec < 60) return sec + "s ago";
+    if (sec < 3600) return Math.floor(sec / 60) + "m ago";
+    return Math.floor(sec / 3600) + "h ago";
+  }
+  function text(el, s) { el.textContent = s == null ? "" : String(s); }
+
+  function chk(label, state, value) {
+    var d = document.createElement("div");
+    d.className = "chk";
+    d.setAttribute("data-s", state);
+    d.appendChild(document.createTextNode(label + " "));
+    var b = document.createElement("b");
+    b.textContent = value;
+    d.appendChild(b);
+    return d;
+  }
+
+  function renderChecks(s) {
+    var box = $("checks");
+    box.textContent = "";
+    var ts = s.tunnels || [];
+    var live = ts.filter(function (t) { return t.in_bond; }).length;
+    var hs = ts.filter(function (t) { return t.up; })
+               .map(function (t) { return t.handshake_age; });
+    var worst = hs.length ? Math.max.apply(null, hs) : null;
+
+    box.appendChild(chk("bond", live === ts.length && live > 0 ? "ok" : live ? "warn" : "bad",
+                        live + "/" + ts.length));
+    box.appendChild(chk("killswitch v4", s.killswitch && s.killswitch.v4 ? "ok" : "bad",
+                        s.killswitch && s.killswitch.v4 ? "on" : "OPEN"));
+    box.appendChild(chk("killswitch v6", s.killswitch && s.killswitch.v6 ? "ok" : "bad",
+                        s.killswitch && s.killswitch.v6 ? "on" : "OPEN"));
+    box.appendChild(chk("nat", s.nat ? "ok" : "bad", s.nat ? "on" : "OFF"));
+    // dns_forced is only meaningful when a resolver was configured; with none
+    // set, "direct" is the correct state and not a fault.
+    box.appendChild(chk("dns", s.dns_forced ? "ok" : "off", s.dns_forced ? "forced" : "direct"));
+    box.appendChild(chk("hash", s.hash_policy === 1 ? "ok" : "warn",
+                        s.hash_policy === 1 ? "L3+L4" : "L3"));
+    if (worst !== null) {
+      box.appendChild(chk("handshakes", worst < 180 ? "ok" : "warn", worst + "s"));
+    }
+    if (!s.licensed) box.appendChild(chk("licence", "bad", "EXPIRED"));
+  }
+
+  function gauge(label, pct, sub, tone) {
+    var g = document.createElement("div");
+    g.className = "g";
+    var l = document.createElement("div");
+    l.className = "lbl";
+    l.textContent = label;
+    g.appendChild(l);
+    var ring = document.createElement("div");
+    ring.className = "ring";
+    pct = Math.max(0, Math.min(100, Math.round(pct)));
+    ring.style.setProperty("--pct", pct);
+    ring.style.setProperty("--gc", "var(--" + tone + ")");
+    var v = document.createElement("span");
+    v.textContent = pct + "%";
+    ring.appendChild(v);
+    g.appendChild(ring);
+    var s = document.createElement("div");
+    s.className = "sub";
+    s.textContent = sub;
+    g.appendChild(s);
+    return g;
+  }
+
+  function renderMachine(s) {
+    var box = $("machine");
+    box.textContent = "";
+    var h = s.host || {};
+    var cpuTone = h.load_pct >= 90 ? "red" : h.load_pct >= 70 ? "amber" : "hi";
+    box.appendChild(gauge("cpu", h.load_pct || 0,
+      (h.load_pct || 0) + "% · load " + (h.load1 || 0).toFixed(2) +
+      (h.cores ? " / " + h.cores + " cores" : ""), cpuTone));
+
+    if (h.mem_total_kb) {
+      var mp = h.mem_used_kb / h.mem_total_kb * 100;
+      var used = bytes(h.mem_used_kb * 1024), tot = bytes(h.mem_total_kb * 1024);
+      box.appendChild(gauge("mem", mp, used[0] + used[1] + " / " + tot[0] + tot[1],
+                            mp >= 92 ? "red" : mp >= 80 ? "amber" : "hi"));
+    }
+
+    (h.disks || []).forEach(function (d) {
+      if (!d.ok || !d.total) {
+        // A mount that cannot be read is not a full disk, and must not be
+        // drawn as one - an NFS server going away looked like 100% used on
+        // the prototype and sent people hunting for space that was fine.
+        box.appendChild(gauge(d.label, 0, "unreadable — is " + d.path + " mounted?", "red"));
+        return;
+      }
+      var pct = (d.total - d.free) / d.total * 100;
+      var free = bytes(d.free), tot2 = bytes(d.total);
+      box.appendChild(gauge(d.label, pct, free[0] + free[1] + " free of " + tot2[0] + tot2[1],
+                            pct >= 95 ? "red" : pct >= 85 ? "amber" : "hi"));
+    });
+  }
+
+  function uptime(sec) {
+    if (!sec) return "";
+    var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600),
+        m = Math.floor(sec % 3600 / 60);
+    var parts = [];
+    if (d) parts.push(d + (d === 1 ? " day" : " days"));
+    if (h) parts.push(h + (h === 1 ? " hour" : " hours"));
+    if (!d && m) parts.push(m + (m === 1 ? " minute" : " minutes"));
+    return "up " + (parts.join(", ") || "moments");
+  }
+
+  function renderHero(s, stale) {
+    var live = (s.tunnels || []).filter(function (t) { return t.in_bond; }).length;
+    var total = (s.tunnels || []).length;
+    var problems = s.problems || [];
+    var open = !(s.killswitch && s.killswitch.v4) || !(s.killswitch && s.killswitch.v6);
+
+    var lvl, word, sub;
+    if (open) {
+      lvl = "bad"; word = "exposed";
+      // Deliberately the loudest state on the page. Every other failure means
+      // traffic stopped; this one means traffic left.
+      sub = "the kill switch is not armed - client traffic could leave outside the tunnels";
+    } else if (live === 0) {
+      lvl = "bad"; word = "blocked";
+      sub = "no live tunnels. Clients have no path out at all, which is the kill switch doing its job";
+    } else if (problems.length) {
+      lvl = "warn"; word = "degraded";
+      sub = live + " of " + total + " tunnels carrying traffic - " + problems.length +
+            " problem" + (problems.length === 1 ? "" : "s") + " below";
+    } else {
+      lvl = "ok"; word = "protected";
+      sub = live + " tunnel" + (live === 1 ? "" : "s") + " bonded · kill switch armed" +
+            (s.hash_policy === 1 ? " · multipath ok" : "");
+    }
+
+    var w = $("word");
+    w.className = "word " + lvl;
+    text(w, word);
+    var ws = $("wsub");
+    ws.className = lvl === "ok" ? "" : lvl;
+    text(ws, sub);
+    $("reactor").setAttribute("data-lvl", lvl);
+    var hero = $("hero");
+    hero.className = (lvl === "ok" ? "" : lvl) + (stale ? " stale" : "");
+
+    var pill = $("pill");
+    pill.className = lvl === "ok" ? "" : lvl;
+    text(pill, lvl === "ok" ? "healthy" : lvl === "warn" ? "degraded" : "attention");
+  }
+
+  function renderRates(s) {
+    // Rate is the byte delta over the delta in the SERVER's `generated` clock,
+    // not over wall-clock between polls. The daemon rebuilds /status every 15s
+    // while the page polls every 5s, so two of every three polls carry
+    // IDENTICAL counters: dividing by wall-clock printed 0 twice then ~3x the
+    // true rate once, and the tunnel bars strobed. Dividing the byte delta by
+    // the generated delta gives the true rate, and it needs no client clock at
+    // all - immune to skew. When generated has not advanced, keep the last
+    // computed rate rather than blinking to zero.
+    if (lastRate && s.generated && s.generated === lastRate.gen) {
+      applyRates(s, lastRate.dl, lastRate.ul, lastRate.per);
+      return lastRate.dl;
+    }
+    if (rateBase && s.generated && s.generated > rateBase.gen) {
+      var dt = s.generated - rateBase.gen;
+      var was = {};
+      (rateBase.tunnels || []).forEach(function (t) { was[t.iface] = t; });
+      var dl = 0, ul = 0, per = {};
+      (s.tunnels || []).forEach(function (t) {
+        var p = was[t.iface];
+        if (!p) return;
+        // Counters reset when an interface is recreated; a negative delta is a
+        // restart, not negative throughput.
+        var drx = t.rx_bytes - p.rx_bytes, dtx = t.tx_bytes - p.tx_bytes;
+        var rrx = drx > 0 ? drx / dt : 0, rtx = dtx > 0 ? dtx / dt : 0;
+        dl += rrx; ul += rtx;
+        per[t.iface] = { rx: rrx, tx: rtx };
+      });
+      lastRate = { gen: s.generated, dl: dl, ul: ul, per: per };
+      rateBase = { gen: s.generated, tunnels: s.tunnels };
+      applyRates(s, dl, ul, per);
+      return dl;
+    }
+    // First sample seen, or no baseline yet: set the baseline and show zero.
+    if (s.generated) rateBase = { gen: s.generated, tunnels: s.tunnels };
+    applyRates(s, 0, 0, {});
+    return 0;
+  }
+
+  function applyRates(s, dl, ul, per) {
+    (s.tunnels || []).forEach(function (t) {
+      var p = per[t.iface] || { rx: 0, tx: 0 };
+      t._rx_rate = p.rx;
+      t._tx_rate = p.tx;
+    });
+    var d = rate(dl), u = rate(ul);
+    text($("dl"), d[0]); text($("dlu"), d[1]);
+    text($("ul"), u[0]); text($("ulu"), u[1]);
+  }
+
+  function renderTunnels(s, totalRate) {
+    var box = $("tunnels");
+    box.textContent = "";
+    var ts = s.tunnels || [];
+    if (!ts.length) {
+      var m = document.createElement("div");
+      m.className = "msg red";
+      m.textContent = "no tunnels configured";
+      box.appendChild(m);
+      return;
+    }
+    ts.forEach(function (t, i) {
+      var row = document.createElement("div");
+      row.className = "trow" + (t.up ? "" : " tdown");
+      var col = "var(" + TCOL[i % TCOL.length] + ")";
+
+      var name = document.createElement("div");
+      name.className = "tif";
+      name.style.color = col;
+      name.textContent = t.iface;
+      row.appendChild(name);
+
+      var mid = document.createElement("div");
+      var bar = document.createElement("div");
+      bar.className = "tbar";
+      var fill = document.createElement("i");
+      fill.style.setProperty("--tc", col);
+      var share = totalRate > 0 && t._rx_rate ? Math.max(2, (t._rx_rate / totalRate) * 100) : 0;
+      fill.style.width = (t.in_bond || t._rx_rate ? Math.max(share, t.up ? 4 : 0) : 0) + "%";
+      bar.appendChild(fill);
+      mid.appendChild(bar);
+
+      var meta = document.createElement("div");
+      meta.className = "tmeta";
+      var bits = [];
+      if (!t.up) {
+        bits.push("down");
+      } else {
+        bits.push(t.in_bond ? "in bond" : "live, not carrying");
+        bits.push("handshake " + t.handshake_age + "s");
+      }
+      if (t.endpoint) bits.push(t.endpoint);
+      if (t.pinned_clients && t.pinned_clients.length) {
+        bits.push("pinned: " + t.pinned_clients.join(" "));
+      }
+      meta.textContent = bits.join("  ·  ");
+      mid.appendChild(meta);
+      row.appendChild(mid);
+
+      var num = document.createElement("div");
+      num.className = "tnum";
+      var r = rate(t._rx_rate || 0);
+      var b = document.createElement("b");
+      b.style.color = col;
+      b.textContent = r[0] + " " + r[1];
+      num.appendChild(b);
+      var sub = document.createElement("div");
+      sub.className = "sub";
+      var rx = bytes(t.rx_bytes), tx = bytes(t.tx_bytes);
+      sub.textContent = "rx " + rx[0] + rx[1] + " · tx " + tx[0] + tx[1];
+      num.appendChild(sub);
+      row.appendChild(num);
+
+      box.appendChild(row);
+    });
+  }
+
+  function renderClients(s) {
+    var box = $("clients");
+    box.textContent = "";
+    var cs = s.clients || [];
+    if (!cs.length) {
+      var m = document.createElement("div");
+      m.className = "msg";
+      m.textContent = "no clients listed - everything in the client subnet uses the default route";
+      box.appendChild(m);
+      return;
+    }
+    var tbl = document.createElement("table");
+    var head = document.createElement("tr");
+    ["client", "mode", "tunnel"].forEach(function (h) {
+      var th = document.createElement("th");
+      th.textContent = h;
+      head.appendChild(th);
+    });
+    tbl.appendChild(head);
+    cs.forEach(function (c) {
+      var tr = document.createElement("tr");
+      var ip = document.createElement("td");
+      ip.textContent = c.ip;
+      tr.appendChild(ip);
+      var md = document.createElement("td");
+      var sp = document.createElement("span");
+      sp.className = "mode " + (c.mode === "pin" ? "pin" : "bond");
+      sp.textContent = c.mode;
+      md.appendChild(sp);
+      tr.appendChild(md);
+      var tn = document.createElement("td");
+      tn.textContent = c.tunnel || "—";
+      tn.className = c.tunnel ? "" : "faint";
+      tr.appendChild(tn);
+      tbl.appendChild(tr);
+    });
+    box.appendChild(tbl);
+  }
+
+  function renderGuards(s) {
+    var box = $("guards");
+    box.textContent = "";
+    var rows = [
+      ["kill switch (IPv4)", s.killswitch && s.killswitch.v4 ? "armed" : "NOT ARMED",
+       s.killswitch && s.killswitch.v4 ? "hi" : "red"],
+      ["kill switch (IPv6)", s.killswitch && s.killswitch.v6 ? "blocked" : "NOT BLOCKED",
+       s.killswitch && s.killswitch.v6 ? "hi" : "red"],
+      ["client NAT", s.nat ? "on" : "OFF", s.nat ? "hi" : "red"],
+      ["client DNS", s.dns_forced ? "forced through the tunnels" : "not redirected",
+       s.dns_forced ? "hi" : "dim"],
+      ["multipath hash", s.hash_policy === 1 ? "layer 4" : "policy " + s.hash_policy,
+       s.hash_policy === 1 ? "hi" : "amber"],
+      ["tunnels in bond", String(s.bonded), s.bonded > 0 ? "hi" : "red"],
+      ["licence", s.licensed ? "valid" : "expired", s.licensed ? "hi" : "red"]
+    ];
+    rows.forEach(function (r) {
+      var k = document.createElement("div");
+      k.textContent = r[0];
+      var v = document.createElement("div");
+      v.className = "v " + r[2];
+      v.textContent = r[1];
+      box.appendChild(k);
+      box.appendChild(v);
+    });
+  }
+
+  function renderProblems(s) {
+    var box = $("problems");
+    box.textContent = "";
+    var ps = s.problems || [];
+    if (!ps.length) {
+      var m = document.createElement("div");
+      m.className = "msg";
+      m.textContent = "none - every check the daemon makes is passing";
+      box.appendChild(m);
+      return;
+    }
+    var ul = document.createElement("ul");
+    ul.className = "plist";
+    ps.forEach(function (p) {
+      var li = document.createElement("li");
+      // The kill switch failing open is the one problem that means traffic can
+      // escape; it reads red, everything else amber.
+      if (/kill switch|NOT armed|not being translated/i.test(p)) li.className = "bad";
+      li.textContent = p;
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+  }
+
+  function markStale(stale) {
+    // EVERY data panel, including protection and problems. Those two assert
+    // "kill switch armed" and "no problems" from the last good poll; leaving
+    // them bright while the others dimmed told an operator the security posture
+    // was current when the feed had frozen - the exact "looks live" failure the
+    // staleness cue exists to prevent. The hero is dimmed too, so a wedged
+    // daemon (HTTP up, document frozen) reads as stale rather than healthy.
+    ["hero", "tbox", "cbox", "mbox", "pbox", "gbox"].forEach(function (id) {
+      $(id).classList.toggle("stale", stale);
+    });
+  }
+
+  function render(s) {
+    var now = Date.now();
+    // Track when `generated` last advanced, on the CLIENT clock. Staleness is
+    // "how long since the document last changed", not "generated vs my clock" -
+    // the latter is wrong by any skew between viewer and gateway.
+    if (lastGen === null || (s.generated && s.generated !== lastGen)) {
+      lastGen = s.generated || 0;
+      lastGenAt = now;
+    }
+    var sinceAdvance = Math.max(0, Math.round((now - lastGenAt) / 1000));
+    var stale = sinceAdvance > STALE_S;
+    var h = s.host || {};
+    text($("host"), h.name || "bondvpn");
+    text($("hdr"), "bonded uplink telemetry" + (s.version ? " · v" + s.version : ""));
+    text($("up"), uptime(h.uptime));
+    text($("age"), "updated " + ago(sinceAdvance));
+    var totalRate = renderRates(s);
+    renderHero(s, stale);
+    renderChecks(s);
+    renderTunnels(s, totalRate);
+    renderClients(s);
+    renderGuards(s);
+    renderProblems(s);
+    renderMachine(s);
+    markStale(stale);
+  }
+
+  function unreachable() {
+    var w = $("word");
+    w.className = "word bad";
+    text(w, "no data");
+    var ws = $("wsub");
+    ws.className = "bad";
+    text(ws, "cannot reach /status on this gateway - is bondvpn still running?");
+    $("reactor").setAttribute("data-lvl", "bad");
+    // markStale adds .stale (dimming every panel including the hero); set the
+    // hero's level class WITHOUT dropping stale, so the last-good chips and
+    // rates dim rather than staying bright green behind the "no data" banner.
+    $("hero").className = "bad stale";
+    var pill = $("pill");
+    pill.className = "bad";
+    text(pill, "unreachable");
+    // Blank the throughput and reset the rate baseline: keeping the last number
+    // on screen under "no data" is the "looks live" failure again, and a resumed
+    // feed must not measure a rate across the outage gap.
+    text($("dl"), "0"); text($("dlu"), "B/s");
+    text($("ul"), "0"); text($("ulu"), "B/s");
+    rateBase = null; lastRate = null;
+    markStale(true);
+  }
+
+  function poll() {
+    if (inFlight) return;   // never stack requests behind a slow one
+    inFlight = true;
+    // AbortController gives the fetch a deadline the browser's own TCP timeout
+    // would not: a blackholed gateway otherwise leaves it pending for minutes
+    // while the page shows a stale-but-healthy screen.
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, FETCH_TIMEOUT_MS);
+    fetch("status", { cache: "no-store", signal: ctrl.signal })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(render)
+      .catch(unreachable)
+      .then(function () { clearTimeout(timer); inFlight = false; });
+  }
+
+  poll();
+  setInterval(poll, POLL_MS);
+})();
+</script>
+</body>
+</html>

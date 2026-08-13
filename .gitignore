@@ -1,0 +1,9 @@
+dist/
+bondvpn
+bondvpn.exe
+*.b64
+config.yml
+
+# wrangler's local cache: account metadata and build artefacts, not source
+.wrangler/
+counter/node_modules/
