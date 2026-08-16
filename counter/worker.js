@@ -26,9 +26,9 @@
 // its own, so a compromise of this host cannot keep a revoked install alive.
 const LICENSE = {
   payload:
-    "eyJpc3N1ZWQiOjE3ODY2MjA0MDEsImxhdGVzdCI6IjEuNi4wIiwibWVzc2FnZSI6IkJvbmRWUE4gaXMgbm93IG9wZW4gc291cmNlIHVuZGVyIEFHUEx2My4iLCJzdGF0dXMiOiJhY3RpdmUifQ==",
+    "eyJpc3N1ZWQiOjE3ODY4ODg2MzcsImxhdGVzdCI6IjEuOC4wIiwibWVzc2FnZSI6IjEuOC4wIGFkZHMgdHVubmVsIHVwbG9hZHMgZnJvbSB0aGUgZGFzaGJvYXJkIGFuZCBTeW5vbG9neSBzdXBwb3J0LiIsInN0YXR1cyI6ImFjdGl2ZSJ9",
   signature:
-    "uFTJllLrzflduGo9ZZGx7UUfmXG+leaxH2vxQipx0gBRlL/NQfKfYcfG4iQPiTLLqil9xNh0ur9rM0xZLJBnDQ==",
+    "w77GuLuMn8EuDBXggV6URmK+ywYOsQSK5UGuVdIJDsA0EM4aqvSHbMoE5XtHkXjcmO++dHYILxAQS8bUoR+ZDg==",
 };
 
 export default {
