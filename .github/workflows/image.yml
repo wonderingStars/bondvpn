@@ -78,10 +78,26 @@ jobs:
       # and make it prove itself. `check` reads everything and changes nothing,
       # so it is safe to run on a build agent.
       - name: Prove the published image runs
+        env:
+          IMAGE: ghcr.io/wonderingstars/bondvpn:${{ steps.v.outputs.version }}
         run: |
-          docker run --rm --entrypoint bondvpn \
-            ghcr.io/wonderingstars/bondvpn:${{ steps.v.outputs.version }} version
+          set -eu
+          docker run --rm --entrypoint bondvpn "$IMAGE" version
+
+          # The two things whose absence makes this image useless on a NAS, and
+          # that nothing else in this job would notice: wireguard-tools alone
+          # needs a kernel that HAS WireGuard, and Alpine's iptables is the
+          # nf_tables build, which a 4.4 kernel cannot use.
+          docker run --rm --entrypoint sh "$IMAGE" -c \
+            'command -v wireguard-go && command -v iptables-legacy'
+
+          # `check` is run the way the README tells people to run the image.
+          # Without the tun device it fails for a reason that says nothing about
+          # the image - it did exactly that here on v1.8.0, failing a release
+          # whose image was fine, while wireguard-go sat inside it the whole
+          # time.
+          sudo modprobe tun || true
           mkdir -p /tmp/wg
           printf '[Interface]\nTable = off\n[Peer]\nPersistentKeepalive = 25\n' > /tmp/wg/wg0.conf
-          docker run --rm -v /tmp/wg:/etc/wireguard:ro \
-            ghcr.io/wonderingstars/bondvpn:${{ steps.v.outputs.version }} check
+          docker run --rm --cap-add NET_ADMIN --device /dev/net/tun \
+            -v /tmp/wg:/etc/wireguard:ro "$IMAGE" check

@@ -140,9 +140,26 @@ func cmdCheck(path string, out io.Writer) int {
 			}
 		}
 	default:
-		fail("this machine has no way to create a WireGuard interface: no kernel " +
-			"module, and wireguard-go is not installed. Install wireguard-tools, " +
-			"or wireguard-go plus the tun module.")
+		// Say which of the two things is actually missing. "wireguard-go is not
+		// installed" is wrong and wastes someone's evening when wireguard-go is
+		// sitting right there and the real problem is that the container was
+		// started without /dev/net/tun - which is exactly what this reported on
+		// a CI runner while the binary was present the whole time.
+		_, wgGoErr := exec.LookPath("wireguard-go")
+		_, tunErr := os.Stat("/dev/net/tun")
+		switch {
+		case wgGoErr == nil && tunErr != nil:
+			fail("wireguard-go is installed but /dev/net/tun is not available, so no " +
+				"tunnel can be created. In Docker, add: --device /dev/net/tun --cap-add NET_ADMIN. " +
+				"On a host, load the module: modprobe tun")
+		case wgGoErr != nil && tunErr == nil:
+			fail("no kernel WireGuard, and wireguard-go is not installed. " +
+				"/dev/net/tun is available, so installing wireguard-go is all that is missing.")
+		default:
+			fail("this machine has no way to create a WireGuard interface: no kernel " +
+				"module, no wireguard-go, and no /dev/net/tun. Install wireguard-tools, " +
+				"or wireguard-go plus the tun module.")
+		}
 	}
 	if _, err := exec.LookPath("ip6tables"); err != nil {
 		warn("ip6tables is not installed - the IPv6 side of the kill switch cannot be armed")
